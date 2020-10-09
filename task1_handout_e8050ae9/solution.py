@@ -65,7 +65,8 @@ class Model():
     def __init__(self):
         """
             TODO: enter your code here
-        """
+            """
+        
         l = pm.HalfCauchy("l", beta=3, shape=(2,))
         sf2 = pm.HalfCauchy("sf2", beta=3)
         sn2 = pm.HalfCauchy("sn2", beta=3)
@@ -102,7 +103,7 @@ def main():
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
     
-    
+  
     #plot the dataset
     nx = 40
     x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
