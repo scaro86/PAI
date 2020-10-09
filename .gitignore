@@ -5,3 +5,7 @@ Desktop.ini
 
 # Compiled Python files
 *.pyc
+
+#jupyter notebook checkpoints
+
+**/*.ipynb_checkpoints/
