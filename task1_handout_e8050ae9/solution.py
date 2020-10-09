@@ -1,4 +1,9 @@
 import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern as M, RBF as R
+import seaborn as sns
+import matplotlib.pylab as plt
+
 
 ## Constant for Cost function
 THRESHOLD = 0.5
@@ -82,6 +87,19 @@ def main():
 
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
+    
+    
+    #plot the dataset
+    nx = 100
+    x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
+    X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
+
+    X_obs = train_x
+    y_obs = train_y
+    
+    with sns.axes_style("white"):
+        plt.figure(figsize=(10,8))
+        plt.scatter(X_obs[:,0], X_obs[:,1], s=50, c=y_obs, marker='s', cmap=plt.cm.viridis);
 
     # load the test dateset
     test_x_name = "test_x.csv"
