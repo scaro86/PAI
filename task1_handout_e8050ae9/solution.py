@@ -1,4 +1,11 @@
 import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import Matern as M, RBF as R
+import seaborn as sns
+import matplotlib.pylab as plt
+import pymc3 as pm
+
+
 
 ## Constant for Cost function
 THRESHOLD = 0.5
@@ -59,6 +66,15 @@ class Model():
         """
             TODO: enter your code here
         """
+        l = pm.HalfCauchy("l", beta=3, shape=(2,))
+        sf2 = pm.HalfCauchy("sf2", beta=3)
+        sn2 = pm.HalfCauchy("sn2", beta=3)
+
+        K = pm.gp.cov.ExpQuad(2, l) * sf2**2
+    
+        gp_spatial = pm.gp.MarginalSparse(cov_func=K, approx="FITC")
+        obs = gp_spatial.marginal_likelihood("obs", X=X_obs, Xu=Xu, y=y_obs, noise=sn2)
+
         pass
 
     def predict(self, test_x):
@@ -67,6 +83,9 @@ class Model():
         """
         ## dummy code below
         y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
+        
+        mu, var = gp.predict(X_new, point=marginal_post, diag=True)
+        sd = np.sqrt(var)
         return y
 
     def fit_model(self, train_x, train_y):
@@ -82,6 +101,19 @@ def main():
 
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
+    
+    
+    #plot the dataset
+    nx = 40
+    x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
+    X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
+
+    X_obs = train_x
+    y_obs = train_y
+    
+    with sns.axes_style("white"):
+        plt.figure(figsize=(10,8))
+        plt.scatter(X_obs[:,0], X_obs[:,1], s=50, c=y_obs, marker='s', cmap=plt.cm.viridis);
 
     # load the test dateset
     test_x_name = "test_x.csv"
