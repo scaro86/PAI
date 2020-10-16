@@ -1,12 +1,9 @@
 import numpy as np
-
-
-from sklearn.kernel_approximation import Nystroem
-from sklearn import pipeline
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M, RBF as R, WhiteKernel as W, ConstantKernel as C
-
-
+import matplotlib.pylab as plt
+import pymc3 as pm
+import theano
+#import seaborn as sns
+#theano.config.gcc.cxxflags = "-Wno-c++11-narrowing"
 
 
 
@@ -60,16 +57,6 @@ You can add new methods, and make changes. The checker script performs:
     prediction = M.predict(test_x)
 
 It uses predictions to compare to the ground truth using the cost_function above.
-
-Fill in the methods of the Model. Please do not change the given methods for the checker script to work.
-You can add new methods, and make changes. The checker script performs:
-
-
-    M = Model()
-    M.fit_model(train_x,train_y)
-    prediction = M.predict(test_x)
-
-It uses predictions to compare to the ground truth using the cost_function above.
 """
 
 
@@ -79,16 +66,15 @@ class Model():
         """
             TODO: enter your code here
         """
-        kernel_gp = 1.0 * M(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=1.5) \
-                +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
-                +C(constant_value=0.3)
-        feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
-        self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
-                                        ("gp", GaussianProcessRegressor())])
+        with pm.Model() as self.spatial_model:
+    
+            l = pm.HalfCauchy("l", beta=3, shape=(2,))
+            sf2 = pm.HalfCauchy("sf2", beta=3)
+            self.sn2 = pm.HalfCauchy("sn2", beta=3)
 
-
-
-            
+            K = pm.gp.cov.ExpQuad(2, l) * sf2**2
+    
+            self.gp_spatial = pm.gp.MarginalSparse(cov_func=K, approx="FITC")
         pass
 
     def predict(self, test_x):
@@ -98,7 +84,11 @@ class Model():
         ## dummy code below
         #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         
-        y = self.gp.predict(test_x)
+        with self.spatial_model:
+
+            f_pred = self.gp_spatial.conditional('f_pred', test_x)
+            y = f_pred
+    
         
         return y
 
@@ -106,8 +96,16 @@ class Model():
         """
              TODO: enter your code here
         """
+        nd = 15
+        xu1, xu2 = np.meshgrid(np.linspace(-1, 1, nd), np.linspace(-1, 1, nd))
+        Xu = np.concatenate([xu1.reshape(nd*nd, 1), xu2.reshape(nd*nd, 1)], 1)
         
-        self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
+        with self.spatial_model:
+            
+            obs = self.gp_spatial.marginal_likelihood("obs", X=train_x, Xu=Xu, y=train_y, noise=self.sn2)
+
+            mp = pm.find_MAP()
+
         pass
 
 
@@ -124,8 +122,8 @@ def main():
     #x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
     #X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
 
-    #X_obs = train_x
-    #y_obs = train_y
+    X_obs = train_x
+    y_obs = train_y
     
     #with sns.axes_style("white"):
         #plt.figure(figsize=(10,8))
