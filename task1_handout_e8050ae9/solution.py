@@ -1,8 +1,8 @@
 import numpy as np
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process import kernels as k
-import seaborn as sns
 import matplotlib.pylab as plt
+import pymc3 as pm
+import theano
+#theano.config.gcc.cxxflags = "-Wno-c++11-narrowing"
 
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.datasets import make_classification
@@ -68,9 +68,15 @@ class Model():
         """
         TODO: enter your code here
         """
-        model = GaussianProcessClassifier(kernel=1*k.RBF(1.0))
+        with pm.Model() as self.spatial_model:
     
+            l = pm.HalfCauchy("l", beta=3, shape=(2,))
+            sf2 = pm.HalfCauchy("sf2", beta=3)
+            self.sn2 = pm.HalfCauchy("sn2", beta=3)
 
+            K = pm.gp.cov.ExpQuad(2, l) * sf2**2
+    
+            self.gp_spatial = pm.gp.MarginalSparse(cov_func=K, approx="FITC")
         pass
 
     def predict(self, test_x):
@@ -78,7 +84,13 @@ class Model():
             TODO: enter your code here
         """
         ## dummy code below
-        y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
+        #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
+        
+        with self.spatial_model:
+
+            f_pred = self.gp_spatial.conditional('f_pred', test_x)
+            y = f_pred
+    
         
         return y
 
@@ -86,8 +98,16 @@ class Model():
         """
              TODO: enter your code here
         """
-        model.fit(train_x, train_y)
+        nd = 15
+        xu1, xu2 = np.meshgrid(np.linspace(-1, 1, nd), np.linspace(-1, 1, nd))
+        Xu = np.concatenate([xu1.reshape(nd*nd, 1), xu2.reshape(nd*nd, 1)], 1)
         
+        with self.spatial_model:
+            
+            obs = self.gp_spatial.marginal_likelihood("obs", X=train_x, Xu=Xu, y=train_y, noise=self.sn2)
+
+            mp = pm.find_MAP()
+
         pass
     
     def evaluate_model(self,train_x, train_y):
@@ -105,6 +125,12 @@ def main():
 
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
+    
+    
+    #plot the dataset
+    #nx = 40
+    #x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
+    #X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
 
     # load the test dateset
     test_x_name = "test_x.csv"
