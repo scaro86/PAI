@@ -19,7 +19,7 @@ from sklearn.gaussian_process.kernels import WhiteKernel
 from sklearn.datasets import make_classification
 from sklearn.model_selection import RepeatedStratifiedKFold
 
-from sklearn.kernel_approximation import Nystroem
+from sklearn.kernel_approximation import (Nystroem, RBFSampler)
 
 
 from sklearn.preprocessing import LabelEncoder
@@ -36,31 +36,39 @@ test_x_name = "test_x.csv"
 test_x = np.loadtxt(test_x_name, delimiter=',')
 
 #preprocessing the data
-feature_map_nystroem = Nystroem(kernel='rbf', gamma=.2, random_state=1, n_components=500)
-data_transformed = feature_map_nystroem.fit(train_x)
 
-model = GaussianProcessClassifier()
+feature_map_nystroem = Nystroem(kernel='rbf', gamma=1, random_state=1)
+feat_map = feature_map_nystroem.fit(train_x)
+idx = feat_map.component_indices_
+X_features = [train_x[i] for i in idx]
+
+
+# rbf_feature = RBFSampler(gamma=1, random_state=1)
+# X_features = rbf_feature.fit_transform(train_x)
+
+kernel = 1*RBF(1.0)
+model = GaussianProcessRegressor(kernel=kernel,random_state=0)
+model.fit(X_features, train_y)
+model.score(X_features, train_y)
 
 cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
 
- #Define the grid 
-grid = dict()
-grid['kernel']= [1*RBF(), 1*DotProduct(), 1*Matern(), 1*RationalQuadratic(), 1*WhiteKernel()]
-#Define search
-search = GridSearchCV(model, grid, scoring = 'accuracy', cv =cv, n_jobs = -2)
-#perform the search
-results = search.fit(data_transformed, train_y)
-#summarize best
-print('Best mean accuracy : %.3f' %results.best_score_)
-print('Best Config :%s' %results.best_params_)
+
+
+
+#   #Define the grid 
+# grid = dict()
+# grid['kernel']= [1*RBF(), 1*DotProduct(), 1*Matern(), 1*RationalQuadratic(), 1*WhiteKernel()]
+# #Define search
+# search = GridSearchCV(model, grid, scoring = 'accuracy', cv =cv, n_jobs = -2)
+# #perform the search
+# results = search.fit(X_features, train_y)
+# #summarize best
+# print('Best mean accuracy : %.3f' %results.best_score_)
+# print('Best Config :%s' %results.best_params_)
         
-#summarize all
-means = results.cv_results_['mean_test_score']
-params = results.cv_results_['params']
-for mean, param in zi(means, params):
-    print(">%.3f with: %r" % (mean, param))
-    
-
-
-
-
+# #summarize all
+# means = results.cv_results_['mean_test_score']
+# params = results.cv_results_['params']
+# for mean, param in zi(means, params):
+#     print(">%.3f with: %r" % (mean, param))

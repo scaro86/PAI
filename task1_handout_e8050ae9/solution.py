@@ -4,10 +4,7 @@ import pymc3 as pm
 import theano
 #theano.config.gcc.cxxflags = "-Wno-c++11-narrowing"
 
-from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.datasets import make_classification
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import RepeatedStratifiedKFold
+
 
 ## Constant for Cost function
 THRESHOLD = 0.5
@@ -66,7 +63,7 @@ class Model():
 
     def __init__(self):
         """
-        TODO: enter your code here
+            TODO: enter your code here
         """
         with pm.Model() as self.spatial_model:
     
@@ -109,14 +106,6 @@ class Model():
             mp = pm.find_MAP()
 
         pass
-    
-    def evaluate_model(self,train_x, train_y):
-        
-        cv = RepeatedStratifiedKFold(n_splits = 10, n_repeats = 3, random_state=1)
-        cv_score = cross_val_score(model, train_x, train_y, scoring='accuracy', cv =cv, n_jobs = -2)
-        score = np.array([np.mean(cv_score), np.std(cv_score)])
-        
-        return score
 
 
 def main():
@@ -131,6 +120,13 @@ def main():
     #nx = 40
     #x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
     #X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
+
+    X_obs = train_x
+    y_obs = train_y
+    
+    with sns.axes_style("white"):
+        plt.figure(figsize=(10,8))
+        plt.scatter(X_obs[:,0], X_obs[:,1], s=50, c=y_obs, marker='s', cmap=plt.cm.viridis);
 
     # load the test dateset
     test_x_name = "test_x.csv"
