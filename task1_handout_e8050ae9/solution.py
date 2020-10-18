@@ -4,7 +4,10 @@ import numpy as np
 from sklearn.kernel_approximation import Nystroem
 from sklearn import pipeline
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M, RBF as R, WhiteKernel as W, ConstantKernel as C
+from sklearn.gaussian_process.kernels import Matern as Mat, RBF as R, WhiteKernel as W, ConstantKernel as C, RationalQuadratic as RQ, DotProduct
+from sklearn.metrics import make_scorer
+from sklearn.model_selection import GridSearchCV
+
 
 
 
@@ -79,12 +82,31 @@ class Model():
         """
             TODO: enter your code here
         """
-        kernel_gp = 1.0 * M(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=1.5) \
-                +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
-                +C(constant_value=0.3)
+        # kernel_gp = 1.0 * Mat(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=0.5) \
+        #         +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
+        #         +C(constant_value=0.3)
+        #kernel_gp = 1.0*R(1.0)+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1))+C(constant_value=0.3)
+
+        my_scorer = make_scorer(cost_function)
+
+        grid = dict()
+        grid['alpha'] = [1e0, 1e-1, 1e-2, 1e-3]
+        grid['kernel']= [1*R(), 1*DotProduct(), 1*Mat(), 1*RQ(), 1*W()]
+        # grid['optimizer'] = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
+        
+        #Define the model 
+        
         feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
-        self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
+        nystroem_approx_gp = pipeline.Pipeline([("feature_map", Nystroem()),
                                         ("gp", GaussianProcessRegressor())])
+        
+        #Define search
+        # cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
+        cv = 3
+        self.search = GridSearchCV(GaussianProcessRegressor(), param_grid=grid, scoring = my_scorer, cv =cv)
+        #perform the search
+                        
+
 
 
 
@@ -93,7 +115,7 @@ class Model():
 
     def predict(self, test_x):
         """
-            TODO: enter your code here
+            TODO: enter your code here, 
         """
         ## dummy code below
         #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
@@ -106,8 +128,9 @@ class Model():
         """
              TODO: enter your code here
         """
+        self.gp = self.search.fit(train_x, train_y)
+        # self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
         
-        self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
         pass
 
 
@@ -140,7 +163,7 @@ def main():
     prediction = M.predict(test_x)
 
     print(prediction)
-
+        
 
 if __name__ == "__main__":
     main()

@@ -51,24 +51,20 @@ model = GaussianProcessRegressor(kernel=kernel,random_state=0)
 model.fit(X_features, train_y)
 model.score(X_features, train_y)
 
-cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
-
-
 
 
 #   #Define the grid 
-# grid = dict()
-# grid['kernel']= [1*RBF(), 1*DotProduct(), 1*Matern(), 1*RationalQuadratic(), 1*WhiteKernel()]
-# #Define search
-# search = GridSearchCV(model, grid, scoring = 'accuracy', cv =cv, n_jobs = -2)
-# #perform the search
+
 # results = search.fit(X_features, train_y)
-# #summarize best
-# print('Best mean accuracy : %.3f' %results.best_score_)
-# print('Best Config :%s' %results.best_params_)
-        
+        # #summarize best
+        # print('Best mean accuracy : %.3f' %results.best_score_)
+        # print('Best Config :%s' %results.best_params_)
+
 # #summarize all
 # means = results.cv_results_['mean_test_score']
 # params = results.cv_results_['params']
 # for mean, param in zi(means, params):
 #     print(">%.3f with: %r" % (mean, param))
+
+
+
