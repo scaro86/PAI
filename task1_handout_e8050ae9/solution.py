@@ -84,6 +84,7 @@ class Model():
         #feature_map_nystroem = Nystroem(n_components=10)
         self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
                                         ("gp", GaussianProcessRegressor(optimizer = make_scorer(cost_function)))])
+        #self.nystroem_approx_gp = GaussianProcessRegressor(kernel = kernel_gp, optimizer = make_scorer(cost_function))
           
         pass
     
@@ -122,7 +123,7 @@ class Model():
             equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
             train_y_mean[i] = np.mean(equal_values)
    
-    
+
         
         self.gp = self.nystroem_approx_gp.fit(train_x_unique, train_y_mean)
         pass
