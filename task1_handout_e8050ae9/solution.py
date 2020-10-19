@@ -61,17 +61,7 @@ You can add new methods, and make changes. The checker script performs:
 
 It uses predictions to compare to the ground truth using the cost_function above.
 
-Fill in the methods of the Model. Please do not change the given methods for the checker script to work.
-You can add new methods, and make changes. The checker script performs:
-
-
-    M = Model()
-    M.fit_model(train_x,train_y)
-    prediction = M.predict(test_x)
-
-It uses predictions to compare to the ground truth using the cost_function above.
 """
-
 
 class Model():
 
@@ -85,10 +75,7 @@ class Model():
         feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
         self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
                                         ("gp", GaussianProcessRegressor())])
-
-
-
-            
+          
         pass
 
     def predict(self, test_x):
