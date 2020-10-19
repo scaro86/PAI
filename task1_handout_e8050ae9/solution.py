@@ -12,6 +12,10 @@ from sklearn.model_selection import GridSearchCV
 import warnings
 warnings.filterwarnings('error')
 
+import random
+
+random.seed(1)
+
 
 
 ## Constant for Cost function
@@ -86,7 +90,7 @@ class Model():
         kernel_gp = 1.0 * Mat(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=0.5) \
                 +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
                 +C(constant_value=0.3)
-        #kernel_gp = 1.0*R(1.0)+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1))+C(constant_value=0.3)
+        
 
         my_scorer = make_scorer(cost_function)
 
@@ -105,7 +109,18 @@ class Model():
         # self.search = GridSearchCV(pipeline, param_grid=grid, scoring = my_scorer, cv =cv)
         self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
                                         ("gp", GridSearchCV(GaussianProcessRegressor(), param_grid = grid, scoring = my_scorer, cv =cv))])
-                                 
+         
+        #kernel_init = 1.0 * M(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=1.5) \
+        #+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
+        #+C(constant_value=0.3)
+
+        #data_transformed = feature_map_nystroem.fit_transform(train_x)
+        
+    
+        nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
+                                        ("gp", GaussianProcessRegressor())])
+        
+        
         pass
 
     def predict(self, test_x):
@@ -115,7 +130,7 @@ class Model():
         ## dummy code below
         #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         
-        y = self.gp.predict(test_x)
+        y = self.gpr.predict(test_x)
         
         return y
 
@@ -138,10 +153,7 @@ def main():
     
     train_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
     sorted_indices_unique = np.sort(indices_train_unique)
-    # print(train_x[sorted_indices_unique[0]])
-    # print(train_x[2*sorted_indices_unique.shape[0]+1])
-    # print(train_unique.shape[0])
-    # print(train_y.shape)
+
 
     train_y_mean = np.zeros((train_unique.shape[0], ))
     num_unique = sorted_indices_unique.shape[0]
