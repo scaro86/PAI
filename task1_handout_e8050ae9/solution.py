@@ -5,6 +5,7 @@ from sklearn.kernel_approximation import Nystroem
 from sklearn import pipeline
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M, RBF as R, WhiteKernel as W, ConstantKernel as C
+from sklearn.metrics import make_scorer
 
 
 
@@ -69,14 +70,18 @@ class Model():
         """
             TODO: enter your code here
         """
-        kernel_gp = 1.0 * M(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=1.5) \
-                +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
-                +C(constant_value=0.3)
+        kernel_gp = 1.0 * M(length_scale=1.5, length_scale_bounds=(1e-5, 1e5), nu=1.5) #\
+                #+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
+                #+C(constant_value=0.3)
+        #kernel_gp = R(length_scale=1.0, length_scale_bounds=(1e-5, 1e5))
         feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
+        #feature_map_nystroem = Nystroem(n_components=10)
         self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
-                                        ("gp", GaussianProcessRegressor())])
+                                        ("gp", GaussianProcessRegressor(optimizer = make_scorer(cost_function)))])
           
         pass
+    
+    
 
     def predict(self, test_x):
         """
@@ -94,7 +99,24 @@ class Model():
              TODO: enter your code here
         """
         
-        self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
+        train_x_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
+        sorted_indices_unique = np.sort(indices_train_unique)
+        # print(train_x[sorted_indices_unique[0]])
+        # print(train_x[2*sorted_indices_unique.shape[0]+1])
+        # print(train_unique.shape[0])
+        # print(train_y.shape)
+
+        train_y_mean = np.zeros((train_x_unique.shape[0], ))
+        num_unique = sorted_indices_unique.shape[0]
+
+
+        for i in range(sorted_indices_unique.shape[0]):
+            equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
+            train_y_mean[i] = np.mean(equal_values)
+   
+    
+        
+        self.gp = self.nystroem_approx_gp.fit(train_x_unique, train_y_mean)
         pass
 
 

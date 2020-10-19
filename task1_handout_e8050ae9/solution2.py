@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pylab as plt
+#import matplotlib.pylab as plt
 import pymc3 as pm
 import theano
 #import seaborn as sns
@@ -104,7 +104,7 @@ class Model():
             
             obs = self.gp_spatial.marginal_likelihood("obs", X=train_x, Xu=Xu, y=train_y, noise=self.sn2)
 
-            mp = pm.find_MAP()
+            #mp = pm.find_MAP()
 
         pass
 
