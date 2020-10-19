@@ -9,7 +9,8 @@ from sklearn.metrics import make_scorer
 from sklearn.model_selection import GridSearchCV
 
 
-
+import warnings
+warnings.filterwarnings('error')
 
 
 
@@ -82,35 +83,29 @@ class Model():
         """
             TODO: enter your code here
         """
-        # kernel_gp = 1.0 * Mat(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=0.5) \
-        #         +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
-        #         +C(constant_value=0.3)
+        kernel_gp = 1.0 * Mat(length_scale=0.5, length_scale_bounds=(1e-3, 2), nu=0.5) \
+                +W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
+                +C(constant_value=0.3)
         #kernel_gp = 1.0*R(1.0)+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1))+C(constant_value=0.3)
 
         my_scorer = make_scorer(cost_function)
 
         grid = dict()
-        grid['alpha'] = [1e0, 1e-1, 1e-2, 1e-3]
-        grid['kernel']= [1*R(), 1*DotProduct(), 1*Mat(), 1*RQ(), 1*W()]
-        # grid['optimizer'] = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
+        grid['alpha'] = [1e-1, 1e-2, 1e-3]
+        grid['kernel']= [kernel_gp]
         
         #Define the model 
         
         feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
-        nystroem_approx_gp = pipeline.Pipeline([("feature_map", Nystroem()),
-                                        ("gp", GaussianProcessRegressor())])
         
         #Define search
         # cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=3, random_state=1)
         cv = 3
-        self.search = GridSearchCV(GaussianProcessRegressor(), param_grid=grid, scoring = my_scorer, cv =cv)
-        #perform the search
-                        
-
-
-
-
-            
+        
+        # self.search = GridSearchCV(pipeline, param_grid=grid, scoring = my_scorer, cv =cv)
+        self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
+                                        ("gp", GridSearchCV(GaussianProcessRegressor(), param_grid = grid, scoring = my_scorer, cv =cv))])
+                                 
         pass
 
     def predict(self, test_x):
@@ -128,8 +123,8 @@ class Model():
         """
              TODO: enter your code here
         """
-        self.gp = self.search.fit(train_x, train_y)
-        # self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
+        # self.gp = self.search.fit(train_x, train_y)
+        self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
         
         pass
 
@@ -141,6 +136,21 @@ def main():
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
     
+    train_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
+    sorted_indices_unique = np.sort(indices_train_unique)
+    # print(train_x[sorted_indices_unique[0]])
+    # print(train_x[2*sorted_indices_unique.shape[0]+1])
+    # print(train_unique.shape[0])
+    # print(train_y.shape)
+
+    train_y_mean = np.zeros((train_unique.shape[0], ))
+    num_unique = sorted_indices_unique.shape[0]
+
+
+    for i in range(sorted_indices_unique.shape[0]):
+        equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
+        train_y_mean[i] = np.mean(equal_values)
+   
     
     #plot the dataset
     #nx = 40
@@ -159,7 +169,7 @@ def main():
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
     M = Model()
-    M.fit_model(train_x, train_y)
+    M.fit_model(train_unique, train_y_mean)
     prediction = M.predict(test_x)
 
     print(prediction)
