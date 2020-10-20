@@ -6,6 +6,8 @@ from sklearn import pipeline
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M, RBF as R, WhiteKernel as W, ConstantKernel as C
 from sklearn.metrics import make_scorer
+import scipy
+from sklearn.cluster import KMeans, DBSCAN
 
 
 
@@ -70,19 +72,58 @@ class Model():
         """
             TODO: enter your code here
         """
-        kernel_gp = 1.0 * M(length_scale=1.5, length_scale_bounds=(1e-5, 1e5), nu=1.5) #\
-                #+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
-                #+C(constant_value=0.3)
+        self.kernel_gp = 1.0 * M(length_scale=1.6, length_scale_bounds=(1e-5, 1e5), nu=1.5)  \
+                +C(constant_value=1.5) \
+                +W(noise_level=2, noise_level_bounds=(1e-10, 1e+1)) 
+        #kernel_gp = M(length_scale=[1.5, 1.5], nu=1.5)
         #kernel_gp = R(length_scale=1.0, length_scale_bounds=(1e-5, 1e5))
-        feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
-        #feature_map_nystroem = Nystroem(n_components=10)
-        self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
-                                        ("gp", GaussianProcessRegressor(optimizer = make_scorer(cost_function)))])
-        #self.nystroem_approx_gp = GaussianProcessRegressor(kernel = kernel_gp, optimizer = make_scorer(cost_function))
-          
+       
+        self.model = GaussianProcessRegressor(kernel=self.kernel_gp, n_restarts_optimizer=0, random_state=0)
+        
         pass
     
+    def minimize_data(self,train_x, train_y):
+        kmeans = KMeans(n_clusters=100, random_state=0).fit(np.column_stack((train_x,train_y)))
+        data_transformed = kmeans.cluster_centers_
+        #dbscan = DBSCAN(min_samples = 200).fit(np.column_stack((train_x,train_y)))
+        #data_transformed = dbscan.components_
+        self.train_x_minimized = data_transformed[:,0:2]
+        self.train_y_minimized = data_transformed[:,2]
+        
+        pass
     
+    def optimizer(self):
+    # * 'obj_func' is the objective function to be minimized, which
+    #   takes the hyperparameters theta as parameter and an
+    #   optional flag eval_gradient, which determines if the
+    #   gradient is returned additionally to the function value
+    # * 'initial_theta': the initial value for theta, which can be
+    #   used by local optimizers
+    # * 'bounds': the bounds on the values of theta
+        first_prediction = self.model.predict(self.train_x_minimized)
+        #self.obj_func = cost_function(self.train_y_minimized,first_prediction)
+        initial_theta = self.model.kernel_.theta
+        bounds = self.model.kernel_.bounds
+        theta_opt = scipy.optimize.minimize(self.obj_func, initial_theta, bounds=bounds).x
+    # Returned are the best found hyperparameters theta and
+    # the corresponding value of the target function.
+        return theta_opt
+    
+    
+    def obj_func(self,hyperparams):
+        self.model.kernel_.theta = hyperparams
+        prediction = self.model.predict(self.train_x_minimized)
+        cost = cost_function(self.train_y_minimized,prediction)
+        self.model.kernel_.theta = hyperparams
+
+        return cost
+    """
+	def optimizer(self):
+		initial_theta = self.model.kernel_.theta
+		optimalResult = scipy.optimize.minimize(self.obj_func, initial_theta, method='BFGS')
+		theta_opt = optimalResult.x
+		return theta_opt
+    """
 
     def predict(self, test_x):
         """
@@ -91,7 +132,7 @@ class Model():
         ## dummy code below
         #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         
-        y = self.gp.predict(test_x)
+        y = self.model.predict(test_x)
         
         return y
 
@@ -99,25 +140,13 @@ class Model():
         """
              TODO: enter your code here
         """
+        """
         
-        train_x_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
-        sorted_indices_unique = np.sort(indices_train_unique)
-        # print(train_x[sorted_indices_unique[0]])
-        # print(train_x[2*sorted_indices_unique.shape[0]+1])
-        # print(train_unique.shape[0])
-        # print(train_y.shape)
-
-        train_y_mean = np.zeros((train_x_unique.shape[0], ))
-        num_unique = sorted_indices_unique.shape[0]
-
-
-        for i in range(sorted_indices_unique.shape[0]):
-            equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
-            train_y_mean[i] = np.mean(equal_values)
    
-
-        
-        self.gp = self.nystroem_approx_gp.fit(train_x_unique, train_y_mean)
+        """
+        self.minimize_data(train_x,train_y)
+        self.model.fit(self.train_x_minimized,self.train_y_minimized)
+        self.model.kernel_.theta = self.optimizer()
         pass
 
 
@@ -150,7 +179,7 @@ def main():
     prediction = M.predict(test_x)
 
     print(prediction)
-
+    #print(cost_function(train_y, prediction))
 
 if __name__ == "__main__":
     main()
