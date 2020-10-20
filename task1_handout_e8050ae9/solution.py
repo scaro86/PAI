@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.kernel_approximation import Nystroem
 from sklearn import pipeline
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M, RBF as R, WhiteKernel as W, ConstantKernel as C
+from sklearn.gaussian_process.kernels import Matern as Mat, RBF as R, WhiteKernel as W, ConstantKernel as C
 from sklearn.metrics import make_scorer
 
 
@@ -72,15 +72,12 @@ class Model():
         """
             TODO: enter your code here
         """
-        kernel_gp = 1.0 * M(length_scale=1.5, length_scale_bounds=(1e-5, 1e5), nu=1.5) #\
-                #+W(noise_level=1, noise_level_bounds=(1e-10, 1e+1)) \
-                #+C(constant_value=0.3)
-        #kernel_gp = R(length_scale=1.0, length_scale_bounds=(1e-5, 1e5))
-        feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=1,n_components=10)
-        #feature_map_nystroem = Nystroem(n_components=10)
+        kernel_gp = 1.0 * Mat(length_scale=[1.1, 1], length_scale_bounds=(1e-4, 100), nu=0.5) 
+                
+        feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=0, n_components=4)
+           
         self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
-                                        ("gp", GaussianProcessRegressor(optimizer = make_scorer(cost_function)))])
-        #self.nystroem_approx_gp = GaussianProcessRegressor(kernel = kernel_gp, optimizer = make_scorer(cost_function))
+                                        ("gp", GaussianProcessRegressor(alpha=1e-12,  optimizer = make_scorer(cost_function), n_restarts_optimizer=1))])
           
         pass
     
@@ -90,8 +87,6 @@ class Model():
         """
             TODO: enter your code here, 
         """
-        ## dummy code below
-        #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
         
         y = self.gp.predict(test_x)
         
@@ -101,28 +96,8 @@ class Model():
         """
              TODO: enter your code here
         """
-        # self.gp = self.search.fit(train_x, train_y)
+
         self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
-        
-        train_x_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
-        sorted_indices_unique = np.sort(indices_train_unique)
-        # print(train_x[sorted_indices_unique[0]])
-        # print(train_x[2*sorted_indices_unique.shape[0]+1])
-        # print(train_unique.shape[0])
-        # print(train_y.shape)
-
-        train_y_mean = np.zeros((train_x_unique.shape[0], ))
-        num_unique = sorted_indices_unique.shape[0]
-
-
-        for i in range(sorted_indices_unique.shape[0]):
-            equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
-            train_y_mean[i] = np.mean(equal_values)
-   
-
-        
-        self.gp = self.nystroem_approx_gp.fit(train_x_unique, train_y_mean)
-        pass
 
 
 def main():
@@ -131,41 +106,13 @@ def main():
 
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
-    
-    train_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
-    sorted_indices_unique = np.sort(indices_train_unique)
-    # print(train_x[sorted_indices_unique[0]])
-    # print(train_x[2*sorted_indices_unique.shape[0]+1])
-    # print(train_unique.shape[0])
-    # print(train_y.shape)
-
-    train_y_mean = np.zeros((train_unique.shape[0], ))
-    num_unique = sorted_indices_unique.shape[0]
-
-
-    for i in range(sorted_indices_unique.shape[0]):
-        equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
-        train_y_mean[i] = np.mean(equal_values)
-   
-    
-    #plot the dataset
-    #nx = 40
-    #x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
-    #X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
-
-    #X_obs = train_x
-    #y_obs = train_y
-    
-    #with sns.axes_style("white"):
-        #plt.figure(figsize=(10,8))
-        #plt.scatter(X_obs[:,0], X_obs[:,1], s=50, c=y_obs, marker='s', cmap=plt.cm.viridis);
 
     # load the test dateset
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
     M = Model()
-    M.fit_model(train_unique, train_y_mean)
+    M.fit_model(train_x, train_y)
     prediction = M.predict(test_x)
 
     print(prediction)
