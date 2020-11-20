@@ -1,0 +1,11 @@
+# OSX files
+
+.DS_Store
+Desktop.ini
+
+# Compiled Python files
+*.pyc
+
+#jupyter notebook checkpoints
+
+**/*.ipynb_checkpoints/

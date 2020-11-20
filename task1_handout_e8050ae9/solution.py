@@ -7,6 +7,12 @@ import scipy
 from sklearn.cluster import KMeans
 
 
+import warnings
+warnings.filterwarnings('error')
+
+import random
+
+random.seed(1)
 
 
 
@@ -59,6 +65,7 @@ class Model():
         pass
     
     
+<<<<<<< HEAD
     def minimize_data(self,train_x, train_y):
         
         kmeans = KMeans(n_clusters=418, random_state=0).fit(np.column_stack((train_x,train_y)))
@@ -79,6 +86,26 @@ class Model():
     
     
     def fun(self,place_holder):
+=======
+
+    def predict(self, test_x):
+        """
+            TODO: enter your code here, 
+        """
+        ## dummy code below
+        #y = np.ones(test_x.shape[0]) * THRESHOLD - 0.00001
+        
+        y = self.gpr.predict(test_x)
+        
+        return y
+
+    def fit_model(self, train_x, train_y):
+        """
+             TODO: enter your code here
+        """
+        # self.gp = self.search.fit(train_x, train_y)
+        self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
+>>>>>>> doris
         
         self.model.kernel_.theta = place_holder
         first_prediction = self.model.predict(self.train_x_minimized)
@@ -109,15 +136,48 @@ def main():
     train_x = np.loadtxt(train_x_name, delimiter=',')
     train_y = np.loadtxt(train_y_name, delimiter=',')
     
+<<<<<<< HEAD
+=======
+    train_unique, indices_train_unique = np.unique(train_x, axis = 0, return_index = True)
+    sorted_indices_unique = np.sort(indices_train_unique)
+
+
+    train_y_mean = np.zeros((train_unique.shape[0], ))
+    num_unique = sorted_indices_unique.shape[0]
+
+
+    for i in range(sorted_indices_unique.shape[0]):
+        equal_values = np.array([train_y[sorted_indices_unique[i]], train_y[sorted_indices_unique[i]+num_unique], train_y[sorted_indices_unique[i]+2*num_unique]])
+        train_y_mean[i] = np.mean(equal_values)
+   
+    
+    #plot the dataset
+    #nx = 40
+    #x1, x2 = np.meshgrid(np.linspace(0,300,nx), np.linspace(0,300,nx))
+    #X = np.concatenate([x1.reshape(nx*nx, 1), x2.reshape(nx*nx, 1)], 1)
+
+    #X_obs = train_x
+    #y_obs = train_y
+    
+    #with sns.axes_style("white"):
+        #plt.figure(figsize=(10,8))
+        #plt.scatter(X_obs[:,0], X_obs[:,1], s=50, c=y_obs, marker='s', cmap=plt.cm.viridis);
+
+>>>>>>> doris
     # load the test dateset
     test_x_name = "test_x.csv"
     test_x = np.loadtxt(test_x_name, delimiter=',')
 
     M = Model()
-    M.fit_model(train_x, train_y)
+    M.fit_model(train_unique, train_y_mean)
     prediction = M.predict(test_x)
 
     print(prediction)
+<<<<<<< HEAD
     
+=======
+        
+
+>>>>>>> doris
 if __name__ == "__main__":
     main()
