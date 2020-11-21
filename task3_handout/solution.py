@@ -17,8 +17,6 @@ class BO_algo():
                
         """Initializes the algorithm with a parameter configuration. """
 
-        self.sigma_f = 0.15
-        self.sigma_v = 1e-4
         self.v_min = 1.2
         
         #define GP prior kernel for funciton f
@@ -31,6 +29,11 @@ class BO_algo():
         kernel_v = M(length_scale= np.sqrt(2), nu=2.5) + mean_v 
         var_v = np.sqrt(2)
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha=var_v, random_state=1)
+        
+        #initialize the first datapoint to sample from
+        self.xpoints = np.array([[2]])
+        self.predpoints = self.gpf.predict(self.xpoints).reshape(-1,1)
+        self.constpoints = self.gpv.predict(self.xpoints).reshape(-1,1)
 
         pass
 
@@ -45,11 +48,21 @@ class BO_algo():
             1 x domain.shape[0] array containing the next point to evaluate
         """
         
-        recom_x = self.optimize_acquisition_function()
+        #updates model and then optimizes the aquisition funciton to find next point to sample
+        self.gpf.fit(self.xpoints, self.predpoints)
+        
+        #test to check model is being updated
+        print(self.xpoints)
+        print(self.predpoints)
+        
+
+        x_opt = self.optimize_acquisition_function()
+        x_opt = np.array([[x_opt]])
+        
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
-        return recom_x
+        return x_opt
 
 
     def optimize_acquisition_function(self):
@@ -78,6 +91,8 @@ class BO_algo():
             f_values.append(-result[1])
 
         ind = np.argmax(f_values)
+        
+        print(np.atleast_2d(x_values[ind]).shape)
         return np.atleast_2d(x_values[ind])
 
     def acquisition_function(self, x):
@@ -95,24 +110,31 @@ class BO_algo():
             Value of the acquisition function at x
         """
         
+        xi = 0.01
+        
         #values for f
-        output_f = self.gpf.predict(x)
-        y_f = self.gpf + np.random.normal(0, self.sigma_f, output_f.shape[0])
+        mu_f, var_f = self.gpf.predict(x, return_std=True)
+        #y_f = pred_f + np.random.normal(0, self.sigma_f, pred_f.shape[0])
         
         
-        ymax_f = np.argmax(y_f)
-        Z = (x.mean() - ymax_f) / x.stddev() 
+        ymax_f = np.max(self.predpoints)
+        
+        vmax = np.max(self.costpoints)
+        
+        Z = (mu_f - ymax_f - xi) / var_f 
+        
+        xi = 0.01
         
         #Aquisition function corresponding to expected improvement
         
-        if x.stddev() == 0:
+        if var_f == 0:
             af_value_f = 0
         else:
-            af_value_f = (x.mean() - ymax_f) * sp.norm.cdf(Z) + x.stddev() * sp.norm.pdf(Z)
+            af_value_f = (mu_f - ymax_f - xi) * sp.norm.cdf(Z) + var_f * sp.norm.pdf(Z)
         
         #values for v
         output_v = self.gpv.fit(x)
-        constraint_func = -np.log(self.v_min) + np.log(output_v)
+        constraint_func = -np.log(self.v_min) + np.log(vmax)
         
               
         #final af_value including constraint v
@@ -135,10 +157,14 @@ class BO_algo():
             Model training speed
         """
         
+        x_new_point = self.next_recommendation()
+        f_new_point = self.gpf.predict(x_new_point)
+        v_new_point = self.gpv.predict(x_new_point)
         
+        self.xpoints = np.vstack((self.xpoints, x_new_point))
+        self.predpoints = np.vstack((self.predpoints, f_new_point))
+        self.constpoints = np.vstack((self.constpoints, v_new_point))
 
-        # TODO: enter your code here
-        raise NotImplementedError
 
     def get_solution(self):
         """
