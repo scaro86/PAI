@@ -20,17 +20,19 @@ class BO_algo():
         self.sigma_f = 0.15
         self.sigma_v = 1e-4
         self.v_min = 1.2
+        self.x = np.random.uniform(0, 5, size=None)
+        self.f = None
+        self.v = None
         
         #define GP prior kernel for funciton f
-        kernel_f = M(length_scale=0.5, nu=2.5)  
-        var_f = 0.5
-        self.gpf = GaussianProcessRegressor(kernel=kernel_f, alpha=var_f, random_state=1)
+        kernel_f = var_f = 0.5* M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
+        self.gpf = GaussianProcessRegressor(kernel=kernel_f, random_state=1)
         
         #define GP prior kernel for funciton v
         mean_v = 1.5
-        kernel_v = M(length_scale= np.sqrt(2), nu=2.5) + mean_v 
         var_v = np.sqrt(2)
-        self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha=var_v, random_state=1)
+        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) #+ mean_v TODO vérifier si nécessaire et cf @294 pour *var_v
+        self.gpv = GaussianProcessRegressor(kernel=kernel_v, random_state=1)
 
         pass
 
@@ -44,12 +46,11 @@ class BO_algo():
         recommendation: np.ndarray
             1 x domain.shape[0] array containing the next point to evaluate
         """
-        
-        recom = self.optimize_acquisition_function()
+        recom_x = self.optimize_acquisition_function()
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
-        return recom
+        return recom_x
 
 
     def optimize_acquisition_function(self):
@@ -96,21 +97,31 @@ class BO_algo():
         """
         
         #values for f
-        output_f = self.gpf.fit(x)
-        y_f = output_f + np.random.normal(0, self.sigma_f, output_f.shape[0])
+        x = x.reshape(-1, 1)
+            
+        mu, sigma = self.gpf.predict(x, return_std=True)
+        #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
+        y_f = f(x)
+        
         ymax_f = np.argmax(y_f)
-        Z = (x.mean() - ymax_f) / x.stddev() 
+        Z = (mu - ymax_f) / sigma 
         
         #Aquisition function corresponding to expected improvement
-        af_value_f = (x.mean() - ymax_f) * sp.norm.cdf(Z) + x.stddev() * sp.norm.ppf(Z)
+        
+        if sigma == 0:
+            af_value_f = 0
+        else:
+            af_value_f = (mu - ymax_f) * sp.stats.norm.cdf(Z) + sigma * sp.stats.norm.pdf(Z)
         
         #values for v
-        output_v = self.gpv.fit(x)
-        constraint_func = np.log(self.v_min) - np.log(output_v)
+        #v_out = v(x)
+        #v_out = np.array([v_out])
+        #output_v = self.gpv.fit(x, v_out)
+        constraint_func = -np.log(self.v_min) + np.log(v(x))
         
               
         #final af_value including constraint v
-        af_value = af_value_f*sp.norm.cdf()
+        af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
         
         return af_value
 
@@ -130,7 +141,10 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        raise NotImplementedError
+        self.x = np.append(self.x,x)
+        self.f = np.append(self.f,f)
+        self.v_fun = np.append(self.v_fun,v)
+
 
     def get_solution(self):
         """
@@ -141,9 +155,13 @@ class BO_algo():
         solution: np.ndarray
             1 x domain.shape[0] array containing the optimal solution of the problem
         """
-
+        print(self.f)
+        print(self.v_fun)
+        if v(x) < 3:
+            
         # TODO: enter your code here
-        raise NotImplementedError
+        #check here if v(x)<1.2 
+        #raise NotImplementedError
 
 
 """ Toy problem to check code works as expected """
@@ -154,7 +172,7 @@ def check_in_domain(x):
     return np.all(x >= domain[None, :, 0]) and np.all(x <= domain[None, :, 1])
 
 
-def f(x):
+def f(x): #don't have to access it see @254
     """Dummy objective"""
     mid_point = domain[:, 0] + 0.5 * (domain[:, 1] - domain[:, 0])
     return - np.linalg.norm(x - mid_point, 2)  # -(x - 2.5)^2
