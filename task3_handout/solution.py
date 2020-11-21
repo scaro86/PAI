@@ -1,5 +1,5 @@
 import numpy as np
-import scipy as sp
+import scipy.stats as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M
@@ -96,7 +96,7 @@ class BO_algo():
         
         #values for f
         mu, sigma = self.gpf.predict(x, return_std=True)
-        y_f = self.gpf + np.random.normal(0, self.sigma_f, output_f.shape[0])
+        y_f = self.gpf 
         
         ymax_f = np.argmax(y_f)
         Z = (mu - ymax_f) / sigma 
