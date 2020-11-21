@@ -1,5 +1,5 @@
 import numpy as np
-import scipy.stats as sp
+import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M
@@ -20,7 +20,11 @@ class BO_algo():
         self.sigma_f = 0.15
         self.sigma_v = 1e-4
         self.v_min = 1.2
-        self.x = np.random.uniform(0, 5, size=None)
+        
+        #initialize the first datapoint to sample from
+        self.xpoints = np.array([[2]])
+        self.fpoints = np.array([[0]])
+        self.vpoints = np.array([[2]])
         
         #define GP prior kernel for funciton f
         kernel_f = var_f = 0.5* M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
@@ -44,10 +48,16 @@ class BO_algo():
         recommendation: np.ndarray
             1 x domain.shape[0] array containing the next point to evaluate
         """
-        recom_x = self.optimize_acquisition_function()
+        
 
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
+        #updates model and then optimizes the acquisition function to find next  point to 
+        self.gpf.fit(self.xpoints, self.fpoints)
+        self.gpv.fit(self.xpoints, self.vpoints)
+        
+        
+        recom_x = self.optimize_acquisition_function()
         return recom_x
 
 
@@ -95,26 +105,35 @@ class BO_algo():
         """
         
         #values for f
-        mu, sigma = self.gpf.predict(x, return_std=True)
-        y_f = self.gpf 
+        #x = x.reshape(-1, 1)
+        xi = 0.01
+            
+        mu_f, sigma_f = self.gpf.predict(self.xpoints, return_std=True)
+        #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
         
-        ymax_f = np.argmax(y_f)
-        Z = (mu - ymax_f) / sigma 
+        
+        f_max = np.max(self.fpoints)
+        
+        Z = (mu_f - f_max - xi) / sigma_f 
         
         #Aquisition function corresponding to expected improvement
         
-        if sigma == 0:
+        if sigma_f == 0:
             af_value_f = 0
         else:
-            af_value_f = (mu - ymax_f) * sp.norm.cdf(Z) + sigma * sp.norm.pdf(Z)
+            af_value_f = (mu_f - f_max) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
         
         #values for v
-        output_v = self.gpv.fit(x, self.v)
-        constraint_func = -np.log(self.v_min) + np.log(output_v)
+        #v_out = v(x)
+        #v_out = np.array([v_out])
+        #output_v = self.gpv.fit(x, v_out)
+        vcurrent = self.vpoints[0][-1]
+        constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         
               
         #final af_value including constraint v
-        af_value = af_value_f*(1 - sp.norm.cdf(constraint_func))
+        af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
+        print(type(mu_f))
         
         return af_value
 
@@ -134,9 +153,9 @@ class BO_algo():
         """
 
         # TODO: enter your code here
-        self.x = self.x.append(x)
-        self.f = self.f.append(f)
-        self.v = self.v.append(v)
+        self.xpoints = np.append(self.xpoints,x)
+        self.fpoints = np.append(self.fpoints,f)
+        self.vpoints = np.append(self.vpoints,v)
 
 
     def get_solution(self):
@@ -148,10 +167,20 @@ class BO_algo():
         solution: np.ndarray
             1 x domain.shape[0] array containing the optimal solution of the problem
         """
-
+            
         # TODO: enter your code here
         #check here if v(x)<1.2 
-        raise NotImplementedError
+        #print(self.fpoints)
+        x_pos = np.argmax(self.fpoints)
+        x_opt = self.xpoints[0][x_pos]
+        
+        if self.vpoints[0][x_pos] < 1.2:
+            print("perfect")
+            return x_opt
+            
+        else:
+            print("v violated")
+            raise NotImplementedError
 
 
 """ Toy problem to check code works as expected """
