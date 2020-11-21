@@ -11,6 +11,10 @@ from sklearn.metrics import make_scorer
 import warnings
 warnings.filterwarnings('error')
 
+import random
+
+random.seed(1)
+
 
 
 ## Constant for Cost function
@@ -88,7 +92,7 @@ class Model():
             TODO: enter your code here, 
         """
         
-        y = self.gp.predict(test_x)
+        y = self.gpr.predict(test_x)
         
         return y
 
