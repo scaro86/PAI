@@ -133,6 +133,7 @@ class BO_algo():
               
         #final af_value including constraint v
         af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
+        print(type(mu_f))
         
         return af_value
 
@@ -169,9 +170,10 @@ class BO_algo():
             
         # TODO: enter your code here
         #check here if v(x)<1.2 
-        print(self.fpoints)
+        #print(self.fpoints)
         x_pos = np.argmax(self.fpoints)
         x_opt = self.xpoints[0][x_pos]
+        
         if self.vpoints[0][x_pos] < 1.2:
             print("perfect")
             return x_opt
