@@ -3,6 +3,7 @@ import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M
+from sklearn.gaussian_process.kernels import ConstantKernel as C
 
 domain = np.array([[0, 5]])
 
