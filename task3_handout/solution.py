@@ -2,12 +2,10 @@ import numpy as np
 import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M
+from sklearn.gaussian_process.kernels import Matern as M 
 from sklearn.gaussian_process.kernels import ConstantKernel as C
 
 domain = np.array([[0, 5]])
-
-np.random.seed(1)
 
 
 """ Solution """
@@ -32,10 +30,10 @@ class BO_algo():
         var_v = np.sqrt(2)
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha=var_v, random_state=1)
         
-        #initialize the first datapoint to sample from
-        self.xpoints = np.array([[2]])
-        self.fpoints = np.array([[-0.7]])
-        self.vpoints = np.array([[1.3]])
+        #initialize the array of datapoints
+        self.xpoints = np.array([[]])
+        self.fpoints = np.array([[]])
+        self.vpoints = np.array([[]])
 
         pass
 
@@ -50,12 +48,15 @@ class BO_algo():
             1 x domain.shape[0] array containing the next point to evaluate
         """
         
-        #updates model and then optimizes the aquisition funciton to find next point to sample
-        self.gpf.fit(self.xpoints, self.fpoints)
-        self.gpv.fit(self.xpoints, self.vpoints)
+        #If no samples have been taken it initializes the first point to a datapoint in the domain
+        if self.xpoints.size == 0:
+            x_opt = np.array([[2]])
         
-
-        x_opt = self.optimize_acquisition_function()
+        else:
+            #updates model and then optimizes the aquisition funciton to find next point to sample
+            self.gpf.fit(self.xpoints, self.fpoints)
+            self.gpv.fit(self.xpoints, self.vpoints)
+            x_opt = self.optimize_acquisition_function()
         
         return x_opt
 
@@ -133,7 +134,7 @@ class BO_algo():
         
         af_value = af_value_arr[0][0]
         
-        return af_value_f[0][0]
+        return af_value
 
 
     def add_data_point(self, x, f, v):
@@ -167,12 +168,15 @@ class BO_algo():
         
         #index of maximum point
         indx = np.argmax(self.fpoints)
-        print(self.fpoints)
+
         x_opt = self.xpoints[0][indx]
-        print(x_opt)
+
         
         
         return x_opt
+        
+
+
 
 
 """ Toy problem to check code works as expected """
@@ -200,6 +204,7 @@ def main():
 
     # Loop until budget is exhausted
     for j in range(20):
+        print(j)
         # Get next recommendation
         x = agent.next_recommendation()
 
@@ -211,7 +216,8 @@ def main():
         # Obtain objective and constraint observation
         obj_val = f(x)
         cost_val = v(x)
-        agent.add_data_point(x, obj_val, cost_val)
+        agent.add_data_point(x, obj_val, cost_val)       
+        
 
     # Validate solution
     solution = np.atleast_2d(agent.get_solution())
