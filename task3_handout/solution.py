@@ -3,6 +3,7 @@ import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M
+from sklearn.gaussian_process.kernels import ConstantKernel
 
 domain = np.array([[0, 5]])
 
@@ -17,7 +18,7 @@ class BO_algo():
                
         """Initializes the algorithm with a parameter configuration. """
 
-        self.sigma_f = 0.15
+        self.sigma = 0.15
         self.sigma_v = 1e-4
         self.v_min = 1.2
         
@@ -25,16 +26,16 @@ class BO_algo():
         self.xpoints = np.array([[2]])
         self.fpoints = np.array([[0]])
         self.vpoints = np.array([[2]])
-        
         #define GP prior kernel for funciton f
-        kernel_f = var_f = 0.5* M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
-        self.gpf = GaussianProcessRegressor(kernel=kernel_f, random_state=1)
+        var_f = 0.5
+        kernel_f = var_f * M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
+        self.gpf = GaussianProcessRegressor(kernel=kernel_f,alpha=0.15, random_state=1)
         
         #define GP prior kernel for funciton v
         mean_v = 1.5
         var_v = np.sqrt(2)
-        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) #+ mean_v TODO vérifier si nécessaire et cf @294 pour *var_v
-        self.gpv = GaussianProcessRegressor(kernel=kernel_v, random_state=1)
+        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) + ConstantKernel(constant_value=mean_v, constant_value_bounds="fixed")
+        self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
 
         pass
 
@@ -53,12 +54,10 @@ class BO_algo():
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
         #updates model and then optimizes the acquisition function to find next  point to 
-        self.gpf.fit(self.xpoints, self.fpoints)
-        self.gpv.fit(self.xpoints, self.vpoints)
         
         
-        recom_x = self.optimize_acquisition_function()
-        return recom_x
+        #recom_x = np.atleast_2d(self.optimize_acquisition_function())
+        return self.optimize_acquisition_function()
 
 
     def optimize_acquisition_function(self):
@@ -78,7 +77,7 @@ class BO_algo():
         x_values = []
 
         # Restarts the optimization 20 times and pick best solution
-        for _ in range(20):
+        for _ in range(1):
             x0 = domain[:, 0] + (domain[:, 1] - domain[:, 0]) * \
                  np.random.rand(domain.shape[0])
             result = fmin_l_bfgs_b(objective, x0=x0, bounds=domain,
@@ -108,32 +107,34 @@ class BO_algo():
         #x = x.reshape(-1, 1)
         xi = 0.01
             
-        mu_f, sigma_f = self.gpf.predict(self.xpoints, return_std=True)
-        #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
+        mu, sigma = self.gpf.predict(x.reshape(-1,1), return_std=True)
+        #y_f = np.random.normal(0, self.sigma, y_f.shape[0])
         
         
         f_max = np.max(self.fpoints)
         
-        Z = (mu_f - f_max - xi) / sigma_f 
+        Z = (mu - f_max - xi) / sigma 
         
         #Aquisition function corresponding to expected improvement
         
-        if sigma_f == 0:
+        if sigma == 0:
             af_value_f = 0
         else:
-            af_value_f = (mu_f - f_max) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
+            af_value_f = (mu - f_max) * sp.stats.norm.cdf(Z) + sigma * sp.stats.norm.pdf(Z)
+        
+        
         
         #values for v
         #v_out = v(x)
         #v_out = np.array([v_out])
         #output_v = self.gpv.fit(x, v_out)
-        vcurrent = self.vpoints[0][-1]
+        vcurrent = self.vpoints[len(self.vpoints) - 1]
         constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         
               
         #final af_value including constraint v
         af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
-        print(type(mu_f))
+        print(af_value)
         
         return af_value
 
@@ -156,6 +157,12 @@ class BO_algo():
         self.xpoints = np.append(self.xpoints,x)
         self.fpoints = np.append(self.fpoints,f)
         self.vpoints = np.append(self.vpoints,v)
+        #self.xpoints = np.concatenate((self.xpoints,x))
+        #self.fpoints = np.concatenate((self.fpoints,np.array([[f]])))
+        #self.vpoints = np.concatenate((self.vpoints,np.array([[v]])))
+        
+        self.gpf.fit(self.xpoints.reshape(-1,1), self.fpoints.reshape(-1,1))
+        self.gpv.fit(self.xpoints.reshape(-1,1), self.vpoints.reshape(-1,1))
 
 
     def get_solution(self):
