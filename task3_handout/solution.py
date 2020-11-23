@@ -26,14 +26,15 @@ class BO_algo():
         
         #define GP prior kernel for funciton v
         mean_v = 1.5
-        kernel_v = M(length_scale= np.sqrt(2), nu=2.5) + mean_v 
+        kernel_v = M(length_scale= np.sqrt(2), nu=2.5) + C(constant_value=mean_v)
+
         var_v = np.sqrt(2)
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha=var_v, random_state=1)
         
         #initialize the first datapoint to sample from
         self.xpoints = np.array([[2]])
-        self.predpoints = self.gpf.predict(self.xpoints).reshape(-1,1)
-        self.constpoints = self.gpv.predict(self.xpoints).reshape(-1,1)
+        self.fpoints = np.array([[-0.7]])
+        self.vpoints = np.array([[1.3]])
 
         pass
 
@@ -49,19 +50,12 @@ class BO_algo():
         """
         
         #updates model and then optimizes the aquisition funciton to find next point to sample
-        self.gpf.fit(self.xpoints, self.predpoints)
-        
-        #test to check model is being updated
-        print(self.xpoints)
-        print(self.predpoints)
+        self.gpf.fit(self.xpoints, self.fpoints)
+        self.gpv.fit(self.xpoints, self.vpoints)
         
 
         x_opt = self.optimize_acquisition_function()
-        x_opt = np.array([[x_opt]])
         
-
-        # TODO: enter your code here
-        # In implementing this function, you may use optimize_acquisition_function() defined below.
         return x_opt
 
 
@@ -92,7 +86,6 @@ class BO_algo():
 
         ind = np.argmax(f_values)
         
-        print(np.atleast_2d(x_values[ind]).shape)
         return np.atleast_2d(x_values[ind])
 
     def acquisition_function(self, x):
@@ -109,38 +102,37 @@ class BO_algo():
         af_value: float
             Value of the acquisition function at x
         """
-        
+        #constant controlling exploration/exploitaiton trafeoff
         xi = 0.01
         
         #values for f
-        mu_f, var_f = self.gpf.predict(x, return_std=True)
+        mu_f, sigma_f = self.gpf.predict(self.xpoints, return_std=True)
         #y_f = pred_f + np.random.normal(0, self.sigma_f, pred_f.shape[0])
         
         
-        ymax_f = np.max(self.predpoints)
+        fmax = np.max(self.fpoints)
         
-        vmax = np.max(self.costpoints)
-        
-        Z = (mu_f - ymax_f - xi) / var_f 
-        
-        xi = 0.01
+               
+        Z = (mu_f - fmax - xi) / sigma_f 
         
         #Aquisition function corresponding to expected improvement
         
-        if var_f == 0:
+        if sigma_f == 0:
             af_value_f = 0
         else:
-            af_value_f = (mu_f - ymax_f - xi) * sp.norm.cdf(Z) + var_f * sp.norm.pdf(Z)
+            af_value_f = (mu_f - fmax - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
         
         #values for v
-        output_v = self.gpv.fit(x)
-        constraint_func = -np.log(self.v_min) + np.log(vmax)
+        vcurrent = self.vpoints[0][-1]
+        constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         
               
         #final af_value including constraint v
-        af_value = af_value_f*(1 - sp.norm.cdf(constraint_func))
+        af_value_arr = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
         
-        return af_value
+        af_value = af_value_arr[0][0]
+        
+        return af_value_f[0][0]
 
 
     def add_data_point(self, x, f, v):
@@ -157,13 +149,9 @@ class BO_algo():
             Model training speed
         """
         
-        x_new_point = self.next_recommendation()
-        f_new_point = self.gpf.predict(x_new_point)
-        v_new_point = self.gpv.predict(x_new_point)
-        
-        self.xpoints = np.vstack((self.xpoints, x_new_point))
-        self.predpoints = np.vstack((self.predpoints, f_new_point))
-        self.constpoints = np.vstack((self.constpoints, v_new_point))
+        self.xpoints = np.atleast_2d(np.append(self.xpoints,x))
+        self.fpoints = np.atleast_2d(np.append(self.fpoints,f))
+        self.vpoints = np.atleast_2d(np.append(self.vpoints,v))
 
 
     def get_solution(self):
@@ -175,9 +163,15 @@ class BO_algo():
         solution: np.ndarray
             1 x domain.shape[0] array containing the optimal solution of the problem
         """
-
-        # TODO: enter your code here
-        raise NotImplementedError
+        
+        #index of maximum point
+        indx = np.argmax(self.fpoints)
+        print(self.fpoints)
+        x_opt = self.xpoints[0][indx]
+        print(x_opt)
+        
+        
+        return x_opt
 
 
 """ Toy problem to check code works as expected """
