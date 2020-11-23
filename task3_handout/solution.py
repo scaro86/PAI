@@ -175,12 +175,23 @@ class BO_algo():
         x_pos = np.argmax(self.fpoints)
         x_opt = self.xpoints[x_pos]
         
-        if self.vpoints[x_pos] < 1.2:
+        
+        
+        if self.vpoints[x_pos] >= 1.2:
             print("perfect")
-            return x_opt
+            
             
         else:
             print("v violated")
+            counter = 0
+            while self.vpoints[x_pos] < 1.2 and counter < self.xpoints.shape[0]:
+                self.xpoints[x_pos] = -1e5
+                x_pos = np.argmax(self.xpoints)
+                x_opt = self.xpoints[x_pos]
+                counter = counter + 1
+            
+            
+        return x_opt
            # raise NotImplementedError
 
 
