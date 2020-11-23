@@ -53,8 +53,8 @@ class BO_algo():
         # TODO: enter your code here
         # In implementing this function, you may use optimize_acquisition_function() defined below.
         #updates model and then optimizes the acquisition function to find next  point to 
-        self.gpf.fit(self.xpoints, self.fpoints)
-        self.gpv.fit(self.xpoints, self.vpoints)
+        self.gpf.fit(self.xpoints.reshape(-1,1), self.fpoints)
+        self.gpv.fit(self.xpoints.reshape(-1,1), self.vpoints)
         
         
         recom_x = self.optimize_acquisition_function()
@@ -108,8 +108,9 @@ class BO_algo():
         #x = x.reshape(-1, 1)
         xi = 0.01
             
-        mu_f, sigma_f = self.gpf.predict(self.xpoints, return_std=True)
+        mu_f, sigma_f = self.gpf.predict(self.xpoints.reshape(-1,1), return_std=True)
         #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
+        #print(type(sigma_f))
         
         
         f_max = np.max(self.fpoints)
@@ -118,7 +119,7 @@ class BO_algo():
         
         #Aquisition function corresponding to expected improvement
         
-        if sigma_f == 0:
+        if sigma_f.any() == 0:
             af_value_f = 0
         else:
             af_value_f = (mu_f - f_max) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
@@ -127,15 +128,15 @@ class BO_algo():
         #v_out = v(x)
         #v_out = np.array([v_out])
         #output_v = self.gpv.fit(x, v_out)
-        vcurrent = self.vpoints[0][-1]
+        vcurrent = self.vpoints[[0]][-1]
         constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         
               
         #final af_value including constraint v
         af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
-        print(type(mu_f))
+        #print(type(af_value))
         
-        return af_value
+        return af_value[0].item()
 
 
     def add_data_point(self, x, f, v):
@@ -172,15 +173,15 @@ class BO_algo():
         #check here if v(x)<1.2 
         #print(self.fpoints)
         x_pos = np.argmax(self.fpoints)
-        x_opt = self.xpoints[0][x_pos]
+        x_opt = self.xpoints[x_pos]
         
-        if self.vpoints[0][x_pos] < 1.2:
+        if self.vpoints[x_pos] < 1.2:
             print("perfect")
             return x_opt
             
         else:
             print("v violated")
-            raise NotImplementedError
+           # raise NotImplementedError
 
 
 """ Toy problem to check code works as expected """
