@@ -2,12 +2,9 @@ import numpy as np
 import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M
-from sklearn.gaussian_process.kernels import ConstantKernel
+from sklearn.gaussian_process.kernels import Matern as M, ConstantKernel as C, Product as P, Sum as S
 
 domain = np.array([[0, 5]])
-
-np.random.seed(1)
 
 
 """ Solution """
@@ -22,21 +19,20 @@ class BO_algo():
         self.sigma_v = 1e-4
         self.v_min = 1.2
         
-        #initialize the first datapoint to sample from
-        self.xpoints = np.array([[2]])
-        self.fpoints = np.array([[0]])
-        self.vpoints = np.array([[2]])
-        
-        #define GP prior kernel for funciton f
         var_f = 0.5
-        kernel_f = var_f * M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
+        kernel_f = P(C(var_f), M(length_scale=0.5, nu=2.5)) #cf @294 pour *var_f
         self.gpf = GaussianProcessRegressor(kernel=kernel_f,alpha=0.15, random_state=1)
         
         #define GP prior kernel for funciton v
         mean_v = 1.5
         var_v = np.sqrt(2)
-        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) + ConstantKernel(constant_value=mean_v, constant_value_bounds="fixed")
+        kernel_v = S(P(C(var_v) , M(length_scale= np.sqrt(2), nu=2.5)) , C(constant_value=mean_v, constant_value_bounds="fixed"))
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
+        
+        #initialize the array of datapoints
+        self.xpoints = np.array([[]])
+        self.fpoints = np.array([[]])
+        self.vpoints = np.array([[]])
 
         pass
 
@@ -51,16 +47,17 @@ class BO_algo():
             1 x domain.shape[0] array containing the next point to evaluate
         """
         
-
-        # TODO: enter your code here
-        # In implementing this function, you may use optimize_acquisition_function() defined below.
-        #updates model and then optimizes the acquisition function to find next  point to 
-        self.gpf.fit(self.xpoints.reshape(-1,1), self.fpoints)
-        self.gpv.fit(self.xpoints.reshape(-1,1), self.vpoints)
+        #If no samples have been taken it initializes the first point to a datapoint in the domain
+        if self.xpoints.size == 0:
+            x_opt = np.array([[2]])
         
+        else:
+            #updates model and then optimizes the aquisition funciton to find next point to sample
+            self.gpf.fit(self.xpoints, self.fpoints)
+            self.gpv.fit(self.xpoints, self.vpoints)
+            x_opt = self.optimize_acquisition_function()
         
-        recom_x = self.optimize_acquisition_function()
-        return recom_x
+        return x_opt
 
 
     def optimize_acquisition_function(self):
@@ -89,6 +86,7 @@ class BO_algo():
             f_values.append(-result[1])
 
         ind = np.argmax(f_values)
+        
         return np.atleast_2d(x_values[ind])
 
     def acquisition_function(self, x):
@@ -105,40 +103,37 @@ class BO_algo():
         af_value: float
             Value of the acquisition function at x
         """
+        #constant controlling exploration/exploitaiton trafeoff
+        xi = 0.01
         
         #values for f
-        #x = x.reshape(-1, 1)
-        xi = 0.02
-            
-        mu_f, sigma_f = self.gpf.predict(x.reshape(-1,1), return_std=True)
-        #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
-        #print(type(sigma_f))
+        mu_f, sigma_f = self.gpf.predict(self.xpoints, return_std=True)
+        #y_f = pred_f + np.random.normal(0, self.sigma_f, pred_f.shape[0])
         
         
-        f_max = np.max(self.fpoints)
+        fmax = np.max(self.fpoints)
         
-        Z = (mu_f - f_max - xi) / sigma_f 
+               
+        Z = (mu_f - fmax - xi) / sigma_f 
         
         #Aquisition function corresponding to expected improvement
         
-        if sigma_f.any() == 0:
+        if sigma_f == 0:
             af_value_f = 0
         else:
-            af_value_f = (mu_f - f_max) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
+            af_value_f = (mu_f - fmax - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
         
         #values for v
-        #v_out = v(x)
-        #v_out = np.array([v_out])
-        #output_v = self.gpv.fit(x, v_out)
-        vcurrent = self.vpoints[[0]][-1]
+        vcurrent = self.vpoints[0][-1]
         constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         
               
         #final af_value including constraint v
-        af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
-        #print(type(af_value))
+        af_value_arr = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
         
-        return af_value[0].item()
+        af_value = af_value_arr[0][0]
+        
+        return af_value
 
 
     def add_data_point(self, x, f, v):
@@ -154,11 +149,10 @@ class BO_algo():
         v: np.ndarray
             Model training speed
         """
-
-        # TODO: enter your code here
-        self.xpoints = np.append(self.xpoints,x)
-        self.fpoints = np.append(self.fpoints,f)
-        self.vpoints = np.append(self.vpoints,v)
+        
+        self.xpoints = np.atleast_2d(np.append(self.xpoints,x))
+        self.fpoints = np.atleast_2d(np.append(self.fpoints,f))
+        self.vpoints = np.atleast_2d(np.append(self.vpoints,v))
 
 
     def get_solution(self):
@@ -170,31 +164,29 @@ class BO_algo():
         solution: np.ndarray
             1 x domain.shape[0] array containing the optimal solution of the problem
         """
-            
-        # TODO: enter your code here
-        #check here if v(x)<1.2 
-        #print(self.fpoints)
+        
+        #index of maximum point
         x_pos = np.argmax(self.fpoints)
-        x_opt = self.xpoints[x_pos]
+        x_opt = self.xpoints[0][x_pos]
         
         
         
-        if self.vpoints[x_pos] >= 1.2:
-            print("perfect")
-            
-            
+        if self.vpoints[0][x_pos] >= 1.2:
+            print("perfect")  
         else:
             print("v violated")
             counter = 0
-            while self.vpoints[x_pos] < 1.2 and counter < self.xpoints.shape[0]:
-                self.xpoints[x_pos] = -1e5
-                x_pos = np.argmax(self.xpoints)
-                x_opt = self.xpoints[x_pos]
+            while self.vpoints[0][x_pos] < 1.2 and counter < self.xpoints.shape[0]:
+                self.xpoints[0][x_pos] = -1e5
+                x_pos = np.argmax(self.fpoints)
+                x_opt = self.xpoints[0][x_pos]
                 counter = counter + 1
             
             
         return x_opt
-           # raise NotImplementedError
+        
+
+
 
 
 """ Toy problem to check code works as expected """
@@ -205,7 +197,7 @@ def check_in_domain(x):
     return np.all(x >= domain[None, :, 0]) and np.all(x <= domain[None, :, 1])
 
 
-def f(x): #don't have to access it see @254
+def f(x):
     """Dummy objective"""
     mid_point = domain[:, 0] + 0.5 * (domain[:, 1] - domain[:, 0])
     return - np.linalg.norm(x - mid_point, 2)  # -(x - 2.5)^2
@@ -222,6 +214,7 @@ def main():
 
     # Loop until budget is exhausted
     for j in range(20):
+        print(j)
         # Get next recommendation
         x = agent.next_recommendation()
 
@@ -233,7 +226,8 @@ def main():
         # Obtain objective and constraint observation
         obj_val = f(x)
         cost_val = v(x)
-        agent.add_data_point(x, obj_val, cost_val)
+        agent.add_data_point(x, obj_val, cost_val)       
+        
 
     # Validate solution
     solution = np.atleast_2d(agent.get_solution())
