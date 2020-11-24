@@ -3,6 +3,7 @@ import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as M
+from sklearn.gaussian_process.kernels import ConstantKernel
 
 domain = np.array([[0, 5]])
 
@@ -27,14 +28,15 @@ class BO_algo():
         self.vpoints = np.array([[2]])
         
         #define GP prior kernel for funciton f
-        kernel_f = var_f = 0.5* M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
-        self.gpf = GaussianProcessRegressor(kernel=kernel_f, random_state=1)
+        var_f = 0.5
+        kernel_f = var_f * M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
+        self.gpf = GaussianProcessRegressor(kernel=kernel_f,alpha=0.15, random_state=1)
         
         #define GP prior kernel for funciton v
         mean_v = 1.5
         var_v = np.sqrt(2)
-        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) #+ mean_v TODO vérifier si nécessaire et cf @294 pour *var_v
-        self.gpv = GaussianProcessRegressor(kernel=kernel_v, random_state=1)
+        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) + ConstantKernel(constant_value=mean_v, constant_value_bounds="fixed")
+        self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
 
         pass
 
@@ -106,9 +108,9 @@ class BO_algo():
         
         #values for f
         #x = x.reshape(-1, 1)
-        xi = 0.01
+        xi = 0.02
             
-        mu_f, sigma_f = self.gpf.predict(self.xpoints.reshape(-1,1), return_std=True)
+        mu_f, sigma_f = self.gpf.predict(x.reshape(-1,1), return_std=True)
         #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
         #print(type(sigma_f))
         
