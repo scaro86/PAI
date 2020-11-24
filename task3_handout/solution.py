@@ -2,7 +2,8 @@ import numpy as np
 import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M, ConstantKernel as C, Product as P, Sum as S
+from sklearn.gaussian_process.kernels import Matern as M, ConstantKernel as C, Product as P, Sum as S, WhiteKernel as W
+from scipy.stats import norm
 
 domain = np.array([[0, 5]])
 
@@ -15,10 +16,11 @@ class BO_algo():
                
         """Initializes the algorithm with a parameter configuration. """
 
+        self.v_min = 1.2
         self.sigma_f = 0.15
         self.sigma_v = 1e-4
-        self.v_min = 1.2
         
+        #define GP prior kernel for funciton f
         var_f = 0.5
         kernel_f = P(C(var_f), M(length_scale=0.5, nu=2.5)) #cf @294 pour *var_f
         self.gpf = GaussianProcessRegressor(kernel=kernel_f,alpha=0.15, random_state=1)
@@ -28,7 +30,7 @@ class BO_algo():
         var_v = np.sqrt(2)
         kernel_v = S(P(C(var_v) , M(length_scale= np.sqrt(2), nu=2.5)) , C(constant_value=mean_v, constant_value_bounds="fixed"))
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
-        
+
         #initialize the array of datapoints
         self.xpoints = np.array([[]])
         self.fpoints = np.array([[]])
@@ -49,7 +51,9 @@ class BO_algo():
         
         #If no samples have been taken it initializes the first point to a datapoint in the domain
         if self.xpoints.size == 0:
-            x_opt = np.array([[2]])
+            #x_opt = np.array([[2]])
+            x_opt = np.array([[(np.random.rand(1) * 5)[0]]])
+            print(x_opt)
         
         else:
             #updates model and then optimizes the aquisition funciton to find next point to sample
@@ -124,13 +128,15 @@ class BO_algo():
             af_value_f = (mu_f - fmax - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
         
         #values for v
-        vcurrent = self.vpoints[0][-1]
-        constraint_func = -np.log(self.v_min) + np.log(vcurrent)
-        
-              
+        #vcurrent = self.vpoints[0][-1]
+        #constraint_func = -np.log(self.v_min) + np.log(vcurrent)
+        mu_v, sigma_v = self.gpf.predict(self.xpoints, return_std=True)
+        #constraint_func = norm.cdf(mu_v/sigma_v)
+        constraint_func = norm(mu_v,sigma_v).cdf(self.v_min+1e-4)
         #final af_value including constraint v
-        af_value_arr = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
-        
+        #af_value_arr = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
+        af_value_arr = af_value_f*constraint_func
+
         af_value = af_value_arr[0][0]
         
         return af_value
@@ -166,23 +172,21 @@ class BO_algo():
         """
         
         #index of maximum point
+
         x_pos = np.argmax(self.fpoints)
         x_opt = self.xpoints[0][x_pos]
-        
-        
-        
+
         if self.vpoints[0][x_pos] >= 1.2:
-            print("perfect")  
+            print("perfect")   
         else:
-            print("v violated")
+        #    print("v violated")
             counter = 0
-            while self.vpoints[0][x_pos] < 1.2 and counter < self.xpoints.shape[0]:
-                self.xpoints[0][x_pos] = -1e5
+            while self.vpoints[0][x_pos] < 1.2: 
+                self.fpoints[0][x_pos] = -1e5
                 x_pos = np.argmax(self.fpoints)
                 x_opt = self.xpoints[0][x_pos]
                 counter = counter + 1
-            
-            
+
         return x_opt
         
 
@@ -214,7 +218,7 @@ def main():
 
     # Loop until budget is exhausted
     for j in range(20):
-        print(j)
+        #print(j)
         # Get next recommendation
         x = agent.next_recommendation()
 
