@@ -23,9 +23,9 @@ class BO_algo():
         self.v_min = 1.2
         
         #initialize the first datapoint to sample from
-        self.xpoints = np.array([[2]])
-        self.fpoints = np.array([[0]])
-        self.vpoints = np.array([[2]])
+        self.xpoints = np.array([[]])
+        self.fpoints = np.array([[]])
+        self.vpoints = np.array([[]])
         
         #define GP prior kernel for funciton f
         var_f = 0.5
@@ -53,14 +53,19 @@ class BO_algo():
         
 
         # TODO: enter your code here
-        # In implementing this function, you may use optimize_acquisition_function() defined below.
-        #updates model and then optimizes the acquisition function to find next  point to 
-        self.gpf.fit(self.xpoints.reshape(-1,1), self.fpoints)
-        self.gpv.fit(self.xpoints.reshape(-1,1), self.vpoints)
+        #If no samples have been taken it initializes the first point to a datapoint in the domain
+        if self.xpoints.size == 0:
+            #x_opt = np.array([[2]])
+            x_opt = np.array([[(np.random.rand(1) * 5)[0]]])
+            #print(x_opt)
         
+        else:
+            #updates model and then optimizes the aquisition funciton to find next point to sample
+            self.gpf.fit(self.xpoints.reshape(-1, 1), self.fpoints)
+            self.gpv.fit(self.xpoints.reshape(-1, 1), self.vpoints)
+            x_opt = self.optimize_acquisition_function()
         
-        recom_x = self.optimize_acquisition_function()
-        return recom_x
+        return x_opt
 
 
     def optimize_acquisition_function(self):
@@ -108,7 +113,7 @@ class BO_algo():
         
         #values for f
         #x = x.reshape(-1, 1)
-        xi = 0.001
+        xi = 0.01
             
         mu_f, sigma_f = self.gpf.predict(x.reshape(-1,1), return_std=True)
         #print(type(x[0].item()))
@@ -131,11 +136,11 @@ class BO_algo():
         #v_out = v(x)
         #v_out = np.array([v_out])
         #output_v = self.gpv.fit(x, v_out)
-        #vcurrent = self.vpoints[[0]][-1]
-        #constraint_func = -np.log(self.v_min) + np.log(vcurrent)
+        vcurrent = self.vpoints[[0]][-1]
+        constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         #print(type(constraint_func.item()))
-        #mu_v, sigma_v = self.gpv.predict(constraint_func.reshape(1,-1), return_std=True)
-        mu_v, sigma_v = self.gpv.predict(x.reshape(-1,1), return_std=True)
+        mu_v, sigma_v = self.gpv.predict(constraint_func.reshape(1,-1), return_std=True)
+        #mu_v, sigma_v = self.gpv.predict(x.reshape(-1,1), return_std=True)
         
               
         #final af_value including constraint v
