@@ -37,7 +37,7 @@ class BO_algo():
         var_v = np.sqrt(2)
         kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) + ConstantKernel(constant_value=mean_v, constant_value_bounds="fixed")
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
-
+        
         pass
 
 
@@ -111,6 +111,7 @@ class BO_algo():
         xi = 0.02
             
         mu_f, sigma_f = self.gpf.predict(x.reshape(-1,1), return_std=True)
+        #print(type(x[0].item()))
         #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
         #print(type(sigma_f))
         
@@ -132,10 +133,12 @@ class BO_algo():
         #output_v = self.gpv.fit(x, v_out)
         vcurrent = self.vpoints[[0]][-1]
         constraint_func = -np.log(self.v_min) + np.log(vcurrent)
+        #print(type(constraint_func.item()))
+        mu_v, sigma_v = self.gpv.predict(constraint_func.reshape(1,-1), return_std=True)
         
               
         #final af_value including constraint v
-        af_value = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
+        af_value = af_value_f*sp.stats.norm.cdf(mu_v/sigma_v)
         #print(type(af_value))
         
         return af_value[0].item()
@@ -187,8 +190,12 @@ class BO_algo():
             print("v violated")
             counter = 0
             while self.vpoints[x_pos] < 1.2 and counter < self.xpoints.shape[0]:
-                self.xpoints[x_pos] = -1e5
-                x_pos = np.argmax(self.xpoints)
+                #print("fpoints")
+                #print(self.fpoints)
+                #print("vpoints")
+                #print(self.vpoints)
+                self.fpoints[x_pos] = -1e5
+                x_pos = np.argmax(self.fpoints)
                 x_opt = self.xpoints[x_pos]
                 counter = counter + 1
             
