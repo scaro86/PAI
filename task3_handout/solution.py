@@ -108,7 +108,7 @@ class BO_algo():
         
         #values for f
         #x = x.reshape(-1, 1)
-        xi = 0.02
+        xi = 0.001
             
         mu_f, sigma_f = self.gpf.predict(x.reshape(-1,1), return_std=True)
         #print(type(x[0].item()))
@@ -125,16 +125,17 @@ class BO_algo():
         if sigma_f.any() == 0:
             af_value_f = 0
         else:
-            af_value_f = (mu_f - f_max) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
+            af_value_f = (mu_f - f_max - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
         
         #values for v
         #v_out = v(x)
         #v_out = np.array([v_out])
         #output_v = self.gpv.fit(x, v_out)
-        vcurrent = self.vpoints[[0]][-1]
-        constraint_func = -np.log(self.v_min) + np.log(vcurrent)
+        #vcurrent = self.vpoints[[0]][-1]
+        #constraint_func = -np.log(self.v_min) + np.log(vcurrent)
         #print(type(constraint_func.item()))
-        mu_v, sigma_v = self.gpv.predict(constraint_func.reshape(1,-1), return_std=True)
+        #mu_v, sigma_v = self.gpv.predict(constraint_func.reshape(1,-1), return_std=True)
+        mu_v, sigma_v = self.gpv.predict(x.reshape(-1,1), return_std=True)
         
               
         #final af_value including constraint v
