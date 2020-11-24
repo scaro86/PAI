@@ -127,28 +127,23 @@ class BO_algo():
         
         #Aquisition function corresponding to expected improvement
         
-        if sigma_f.any() == 0:
-            af_value_f = 0
+        #Probabilistic constraint satisfaction
+        xi_v = 0.01
+        mu_v, sigma_v = self.gpv.predict(x.reshape(-1,1), return_std=True)
+        Pr_c = sp.stats.norm.cdf((mu_v - self.v_min - xi_v)/sigma_v)
+        
+        if Pr_c < 0.5:
+            af_value = Pr_c
+            
         else:
-            af_value_f = (mu_f - f_max - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
-        
-        #values for v
-        #v_out = v(x)
-        #v_out = np.array([v_out])
-        #output_v = self.gpv.fit(x, v_out)
-        vcurrent = self.vpoints[[0]][-1]
-        constraint_func = -np.log(self.v_min) + np.log(vcurrent)
-        #print(type(constraint_func.item()))
-        mu_v, sigma_v = self.gpv.predict(constraint_func.reshape(1,-1), return_std=True)
-        #mu_v, sigma_v = self.gpv.predict(x.reshape(-1,1), return_std=True)
-        
-              
-        #final af_value including constraint v
-        af_value = af_value_f*sp.stats.norm.cdf(mu_v/sigma_v)
-        #print(type(af_value))
+            if sigma_f == 0:
+                af_value_f = 0
+            else:
+                af_value_f = (mu_f - f_max - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
+                
+            af_value = af_value_f*Pr_c
         
         return af_value[0].item()
-
 
     def add_data_point(self, x, f, v):
         """
@@ -193,21 +188,15 @@ class BO_algo():
             
             
         else:
-            print("v violated")
             counter = 0
             while self.vpoints[x_pos] < 1.2 and counter < self.xpoints.shape[0]:
-                #print("fpoints")
-                #print(self.fpoints)
-                #print("vpoints")
-                #print(self.vpoints)
                 self.fpoints[x_pos] = -1e5
                 x_pos = np.argmax(self.fpoints)
                 x_opt = self.xpoints[x_pos]
                 counter = counter + 1
-            
-            
+                
         return x_opt
-           # raise NotImplementedError
+          
 
 
 """ Toy problem to check code works as expected """
