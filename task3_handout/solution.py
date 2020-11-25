@@ -20,6 +20,11 @@ class BO_algo():
         self.sigma_f = 0.15
         self.sigma_v = 1e-4
         
+        #initialize the first datapoint to sample from
+        self.xpoints = np.array([[]])
+        self.fpoints = np.array([[]])
+        self.vpoints = np.array([[]])
+        
         #define GP prior kernel for funciton f
         var_f = 0.5
         kernel_f = P(C(var_f), M(length_scale=0.5, nu=2.5)) #cf @294 pour *var_f
@@ -30,12 +35,7 @@ class BO_algo():
         var_v = np.sqrt(2)
         kernel_v = S(P(C(var_v) , M(length_scale= np.sqrt(2), nu=2.5)) , C(constant_value=mean_v, constant_value_bounds="fixed"))
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
-
-        #initialize the array of datapoints
-        self.xpoints = np.array([[]])
-        self.fpoints = np.array([[]])
-        self.vpoints = np.array([[]])
-
+        
         pass
 
 
@@ -49,16 +49,18 @@ class BO_algo():
             1 x domain.shape[0] array containing the next point to evaluate
         """
         
+
+        # TODO: enter your code here
         #If no samples have been taken it initializes the first point to a datapoint in the domain
         if self.xpoints.size == 0:
             #x_opt = np.array([[2]])
             x_opt = np.array([[(np.random.rand(1) * 5)[0]]])
-            print(x_opt)
+            #print(x_opt)
         
         else:
             #updates model and then optimizes the aquisition funciton to find next point to sample
-            self.gpf.fit(self.xpoints, self.fpoints)
-            self.gpv.fit(self.xpoints, self.vpoints)
+            self.gpf.fit(self.xpoints.reshape(-1, 1), self.fpoints)
+            self.gpv.fit(self.xpoints.reshape(-1, 1), self.vpoints)
             x_opt = self.optimize_acquisition_function()
         
         return x_opt
@@ -111,8 +113,13 @@ class BO_algo():
         xi = 0.01
         
         #values for f
-        mu_f, sigma_f = self.gpf.predict(self.xpoints, return_std=True)
-        #y_f = pred_f + np.random.normal(0, self.sigma_f, pred_f.shape[0])
+        #x = x.reshape(-1, 1)
+        xi = 0.01
+            
+        mu_f, sigma_f = self.gpf.predict(x.reshape(-1,1), return_std=True)
+        #print(type(x[0].item()))
+        #y_f = np.random.normal(0, self.sigma_f, y_f.shape[0])
+        #print(type(sigma_f))
         
         
         fmax = np.max(self.fpoints)
@@ -122,25 +129,23 @@ class BO_algo():
         
         #Aquisition function corresponding to expected improvement
         
-        if sigma_f == 0:
-            af_value_f = 0
+        #Probabilistic constraint satisfaction
+        xi_v = 0.01
+        mu_v, sigma_v = self.gpv.predict(x.reshape(-1,1), return_std=True)
+        Pr_c = sp.stats.norm.cdf((mu_v - self.v_min - xi_v)/sigma_v)
+        
+        if Pr_c < 0.5:
+            af_value = Pr_c
+            
         else:
-            af_value_f = (mu_f - fmax - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
+            if sigma_f == 0:
+                af_value_f = 0
+            else:
+                af_value_f = (mu_f - f_max - xi) * sp.stats.norm.cdf(Z) + sigma_f * sp.stats.norm.pdf(Z)
+                
+            af_value = af_value_f*Pr_c
         
-        #values for v
-        #vcurrent = self.vpoints[0][-1]
-        #constraint_func = -np.log(self.v_min) + np.log(vcurrent)
-        mu_v, sigma_v = self.gpf.predict(self.xpoints, return_std=True)
-        #constraint_func = norm.cdf(mu_v/sigma_v)
-        constraint_func = norm(mu_v,sigma_v).cdf(self.v_min+1e-4)
-        #final af_value including constraint v
-        #af_value_arr = af_value_f*(1 - sp.stats.norm.cdf(constraint_func))
-        af_value_arr = af_value_f*constraint_func
-
-        af_value = af_value_arr[0][0]
-        
-        return af_value
-
+        return af_value[0].item()
 
     def add_data_point(self, x, f, v):
         """
@@ -179,16 +184,15 @@ class BO_algo():
         if self.vpoints[0][x_pos] >= 1.2:
             print("perfect")   
         else:
-        #    print("v violated")
             counter = 0
-            while self.vpoints[0][x_pos] < 1.2: 
-                self.fpoints[0][x_pos] = -1e5
+            while self.vpoints[x_pos] < 1.2 and counter < self.xpoints.shape[0]:
+                self.fpoints[x_pos] = -1e5
                 x_pos = np.argmax(self.fpoints)
-                x_opt = self.xpoints[0][x_pos]
+                x_opt = self.xpoints[x_pos]
                 counter = counter + 1
-
+                
         return x_opt
-        
+          
 
 
 
