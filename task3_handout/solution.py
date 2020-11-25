@@ -2,10 +2,12 @@ import numpy as np
 import scipy as sp
 from scipy.optimize import fmin_l_bfgs_b
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern as M, ConstantKernel as C, Product as P, Sum as S, WhiteKernel as W
-from scipy.stats import norm
+from sklearn.gaussian_process.kernels import Matern as M
+from sklearn.gaussian_process.kernels import ConstantKernel
 
 domain = np.array([[0, 5]])
+
+np.random.seed(1)
 
 
 """ Solution """
@@ -16,9 +18,9 @@ class BO_algo():
                
         """Initializes the algorithm with a parameter configuration. """
 
-        self.v_min = 1.2
         self.sigma_f = 0.15
         self.sigma_v = 1e-4
+        self.v_min = 1.2
         
         #initialize the first datapoint to sample from
         self.xpoints = np.array([[]])
@@ -27,13 +29,13 @@ class BO_algo():
         
         #define GP prior kernel for funciton f
         var_f = 0.5
-        kernel_f = P(C(var_f), M(length_scale=0.5, nu=2.5)) #cf @294 pour *var_f
+        kernel_f = var_f * M(length_scale=0.5, nu=2.5) #cf @294 pour *var_f
         self.gpf = GaussianProcessRegressor(kernel=kernel_f,alpha=0.15, random_state=1)
         
         #define GP prior kernel for funciton v
         mean_v = 1.5
         var_v = np.sqrt(2)
-        kernel_v = S(P(C(var_v) , M(length_scale= np.sqrt(2), nu=2.5)) , C(constant_value=mean_v, constant_value_bounds="fixed"))
+        kernel_v = var_v * M(length_scale= np.sqrt(2), nu=2.5) + ConstantKernel(constant_value=mean_v, constant_value_bounds="fixed")
         self.gpv = GaussianProcessRegressor(kernel=kernel_v, alpha = 0.0001, random_state=1)
         
         pass
@@ -92,7 +94,6 @@ class BO_algo():
             f_values.append(-result[1])
 
         ind = np.argmax(f_values)
-        
         return np.atleast_2d(x_values[ind])
 
     def acquisition_function(self, x):
@@ -109,8 +110,6 @@ class BO_algo():
         af_value: float
             Value of the acquisition function at x
         """
-        #constant controlling exploration/exploitaiton trafeoff
-        xi = 0.01
         
         #values for f
         #x = x.reshape(-1, 1)
@@ -122,10 +121,9 @@ class BO_algo():
         #print(type(sigma_f))
         
         
-        fmax = np.max(self.fpoints)
+        f_max = np.max(self.fpoints)
         
-               
-        Z = (mu_f - fmax - xi) / sigma_f 
+        Z = (mu_f - f_max - xi) / sigma_f 
         
         #Aquisition function corresponding to expected improvement
         
@@ -160,10 +158,11 @@ class BO_algo():
         v: np.ndarray
             Model training speed
         """
-        
-        self.xpoints = np.atleast_2d(np.append(self.xpoints,x))
-        self.fpoints = np.atleast_2d(np.append(self.fpoints,f))
-        self.vpoints = np.atleast_2d(np.append(self.vpoints,v))
+
+        # TODO: enter your code here
+        self.xpoints = np.append(self.xpoints,x)
+        self.fpoints = np.append(self.fpoints,f)
+        self.vpoints = np.append(self.vpoints,v)
 
 
     def get_solution(self):
@@ -175,14 +174,19 @@ class BO_algo():
         solution: np.ndarray
             1 x domain.shape[0] array containing the optimal solution of the problem
         """
-        
-        #index of maximum point
-
+            
+        # TODO: enter your code here
+        #check here if v(x)<1.2 
+        #print(self.fpoints)
         x_pos = np.argmax(self.fpoints)
-        x_opt = self.xpoints[0][x_pos]
-
-        if self.vpoints[0][x_pos] >= 1.2:
-            print("perfect")   
+        x_opt = self.xpoints[x_pos]
+        
+        
+        
+        if self.vpoints[x_pos] >= 1.2:
+            print("perfect")
+            
+            
         else:
             counter = 0
             while self.vpoints[x_pos] < 1.2 and counter < self.xpoints.shape[0]:
@@ -195,8 +199,6 @@ class BO_algo():
           
 
 
-
-
 """ Toy problem to check code works as expected """
 
 def check_in_domain(x):
@@ -205,7 +207,7 @@ def check_in_domain(x):
     return np.all(x >= domain[None, :, 0]) and np.all(x <= domain[None, :, 1])
 
 
-def f(x):
+def f(x): #don't have to access it see @254
     """Dummy objective"""
     mid_point = domain[:, 0] + 0.5 * (domain[:, 1] - domain[:, 0])
     return - np.linalg.norm(x - mid_point, 2)  # -(x - 2.5)^2
@@ -222,7 +224,6 @@ def main():
 
     # Loop until budget is exhausted
     for j in range(20):
-        #print(j)
         # Get next recommendation
         x = agent.next_recommendation()
 
@@ -234,8 +235,7 @@ def main():
         # Obtain objective and constraint observation
         obj_val = f(x)
         cost_val = v(x)
-        agent.add_data_point(x, obj_val, cost_val)       
-        
+        agent.add_data_point(x, obj_val, cost_val)
 
     # Validate solution
     solution = np.atleast_2d(agent.get_solution())
