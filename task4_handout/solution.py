@@ -11,6 +11,9 @@ from torch.optim import Adam
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
+# New packages
+from sklearn.preprocessing import StandardScaler
+
 def discount_cumsum(x, discount):
     """
     Compute  cumulative sums of vectors.
@@ -105,7 +108,13 @@ class MLPActorCritic(nn.Module):
         #    3. The log-probability of the action under the policy output distribution
         # Hint: This function is only called during inference. You should use
         # `torch.no_grad` to ensure that it does not interfer with the gradient computation.
-        return 0, 0, 0
+        
+        dist = self.pi._distribution(state)
+        act = dist.sample()
+        vf = self.v.forward(state)
+        logprob = self.pi._log_prob_from_distribution(dist, act)
+        
+        return act, vf, logprob
 
     def act(self, state):
         return self.step(state)[0]
@@ -159,13 +168,13 @@ class VPGBuffer:
         # Hint: we do the discounting for you, you just need to compute 'deltas'.
         # see the handout for more info
         # deltas = rews[:-1] + ...
-        deltas = rews[:-1]
+        deltas = rews[:-1] - vals[:-1] + self.gamma*vals
         self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
-
+        
         self.path_start_idx = self.ptr
-
+        self.ret_buf[self.path_start_idx:] = discount_cumsum(rews[self.path_start_idx:], self.gamma)
 
     def get(self):
         """
@@ -176,7 +185,10 @@ class VPGBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
-        self.tdres_buf = self.tdres_buf
+        # Standardization is meant @335
+        scaler = StandardScaler()
+        scaler.fit(self.tdres_buf)
+        self.tdres_buf = scaler.transform(self.tdres_buf)
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     tdres=self.tdres_buf, logp=self.logp_buf)
@@ -237,6 +249,7 @@ class Agent:
             ep_returns = []
             for t in range(steps_per_epoch):
                 a, v, logp = self.ac.step(torch.as_tensor(state, dtype=torch.float32))
+                print(a)
 
                 next_state, r, terminal = self.env.transition(a)
                 ep_ret += r
@@ -277,12 +290,20 @@ class Agent:
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
-
+            loss = torch.sum(torch.mul(data.logp, data.tdres), -1)#along which dim do we sum?
+            loss.backwars()
+            pi_optimizer.step()
+            
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
+                loss = data.ret_buf
+                loss.backwards()
+                v_optimizer.step()
+                
+                
 
 
         return True
@@ -296,8 +317,11 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        # Currently, this just returns a random action.
-        return np.random.choice([0, 1, 2, 3])
+        action = self.ac.step(obs)[0]
+        #action = np.random.choice([0, 1, 2, 3])
+
+        return action
+
 
 
 def main():
