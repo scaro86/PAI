@@ -168,13 +168,13 @@ class VPGBuffer:
         # Hint: we do the discounting for you, you just need to compute 'deltas'.
         # see the handout for more info
         # deltas = rews[:-1] + ...
-        deltas = rews[:-1] - vals[:-1] + self.gamma*vals
+        deltas = rews[:-1] - vals[:-1] + self.gamma*vals[1:]
         self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
         
         self.path_start_idx = self.ptr
-        self.ret_buf[self.path_start_idx:] = discount_cumsum(rews[self.path_start_idx:], self.gamma)
+        self.ret_buf[self.path_start_idx:] = discount_cumsum(rew_buf[self.path_start_idx:], self.gamma)
 
     def get(self):
         """
@@ -319,7 +319,7 @@ class Agent:
         # TODO: Implement this function.
         action = self.ac.step(obs)[0]
         #action = np.random.choice([0, 1, 2, 3])
-
+        print(type(action))
         return action
 
 
