@@ -1,17 +1,24 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Oct 20 15:11:41 2020
+
+@author: dorisfonsecalima
+"""
+
 import numpy as np
 
 
+from sklearn.kernel_approximation import Nystroem
+from sklearn import pipeline
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern as Mat, RBF as R, WhiteKernel as W, ConstantKernel as C
 from sklearn.metrics import make_scorer
+from sklearn.cluster import KMeans
 
 
 import warnings
 warnings.filterwarnings('error')
-
-import random
-
-random.seed(1)
 
 
 
@@ -24,7 +31,12 @@ W4 = 0.04
 
 
 def cost_function(true, predicted):
-   
+    """
+        true: true values in 1D numpy array
+        predicted: predicted values in 1D numpy array
+
+        return: float
+    """
     cost = (true - predicted)**2
 
     # true above threshold (case 1)
@@ -50,6 +62,18 @@ def cost_function(true, predicted):
         reward = 0
     return np.mean(cost) - np.mean(reward)
 
+"""
+Fill in the methods of the Model. Please do not change the given methods for the checker script to work.
+You can add new methods, and make changes. The checker script performs:
+
+
+    M = Model()
+    M.fit_model(train_x,train_y)
+    prediction = M.predict(test_x)
+
+It uses predictions to compare to the ground truth using the cost_function above.
+
+"""
 
 class Model():
 
@@ -57,45 +81,32 @@ class Model():
         """
             TODO: enter your code here
         """
-        kernel_gp = 1.0 * Mat(length_scale=[1.1, 1], length_scale_bounds=(1e-4, 100), nu=0.5) 
+        #kernel_gp = 1.0 * Mat(length_scale=[1.1, 1], length_scale_bounds=(1e-4, 100), nu=0.5) 
+        kernel_gp = C() + R() + W()
                 
-        feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=0, n_components=4)
+        feature_map_nystroem = Nystroem(kernel = kernel_gp, random_state=0, n_components=2)
            
         self.nystroem_approx_gp = pipeline.Pipeline([("feature_map", feature_map_nystroem),
                                         ("gp", GaussianProcessRegressor(alpha=1e-12,  optimizer = make_scorer(cost_function), n_restarts_optimizer=1))])
           
         pass
     
-    
-<<<<<<< HEAD
     def minimize_data(self,train_x, train_y):
-        
-        kmeans = KMeans(n_clusters=418, random_state=0).fit(np.column_stack((train_x,train_y)))
-        data_clustered = kmeans.cluster_centers_
-        self.train_x_minimized = data_clustered[:,0:2]
-        self.train_y_minimized = data_clustered[:,2]
+        kmeans = KMeans(n_clusters=400, random_state=0).fit(np.column_stack((train_x,train_y)))
+        data_transformed = kmeans.cluster_centers_
+        #dbscan = DBSCAN(min_samples = 200).fit(np.column_stack((train_x,train_y)))
+        #data_transformed = dbscan.components_
+        self.train_x_minimized = data_transformed[:,0:2]
+        self.train_y_minimized = data_transformed[:,2]
         
         pass
-    
-    
-    def optimizer(self):
-    
-        initial_theta = self.model.kernel_.theta
-        bounds = self.model.kernel_.bounds
-        theta_opt = scipy.optimize.minimize(self.fun, initial_theta, bounds=bounds).x
-    
-        return theta_opt
-    
-    
-    def fun(self,place_holder):
-=======
 
     def predict(self, test_x):
         """
             TODO: enter your code here, 
         """
         
-        y = self.gpr.predict(test_x)
+        y = self.gp.predict(test_x)
         
         return y
 
@@ -103,8 +114,8 @@ class Model():
         """
              TODO: enter your code here
         """
-
-        self.gp = self.nystroem_approx_gp.fit(train_x, train_y)
+        self.minimize_data(train_x,train_y)
+        self.gp = self.nystroem_approx_gp.fit(self.train_x_minimized, self.train_y_minimized)
 
 
 def main():
@@ -123,11 +134,7 @@ def main():
     prediction = M.predict(test_x)
 
     print(prediction)
-<<<<<<< HEAD
-    
-=======
         
 
->>>>>>> doris
 if __name__ == "__main__":
     main()
