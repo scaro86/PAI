@@ -11,9 +11,6 @@ from torch.optim import Adam
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
-# New packages
-from sklearn.preprocessing import StandardScaler
-
 def discount_cumsum(x, discount):
     """
     Compute  cumulative sums of vectors.
@@ -169,12 +166,13 @@ class VPGBuffer:
         # see the handout for more info
         # deltas = rews[:-1] + ...
         deltas = rews[:-1] - vals[:-1] + self.gamma*vals[1:]
+        print(deltas.shape)
         self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
         
         self.path_start_idx = self.ptr
-        self.ret_buf[self.path_start_idx:] = discount_cumsum(rew_buf[self.path_start_idx:], self.gamma)
+        self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma)
 
     def get(self):
         """
@@ -186,9 +184,7 @@ class VPGBuffer:
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
         # Standardization is meant @335
-        scaler = StandardScaler()
-        scaler.fit(self.tdres_buf)
-        self.tdres_buf = scaler.transform(self.tdres_buf)
+        self.tdres_buf = (self.tdres_buf - np.mean(self.tdres_buf))/np.std(self.tdres_buf)
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     tdres=self.tdres_buf, logp=self.logp_buf)
@@ -317,8 +313,8 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        action = self.ac.step(obs)[0]
-        #action = np.random.choice([0, 1, 2, 3])
+        #action = self.ac.step(obs)[0]
+        action = np.random.choice([0, 1, 2, 3])
         print(type(action))
         return action
 
