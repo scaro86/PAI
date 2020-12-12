@@ -6,7 +6,7 @@ import time
 import scipy.signal
 from gym.spaces import Box, Discrete
 
-import torch
+import torch 
 from torch.optim import Adam
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
@@ -117,6 +117,7 @@ class MLPActorCritic(nn.Module):
         logprob = self.pi._log_prob_from_distribution(dist, act)
         
         return act.item(), vf.item(), logprob.item()
+    #wonder fi this is correct and if we shouldn't take the action that has the max proba or take all of them and choose after 
 
     def act(self, state):
         return self.step(state)[0]
@@ -172,11 +173,13 @@ class VPGBuffer:
         # deltas = rews[:-1] + ...
         deltas = rews[:-1] - vals[:-1] + self.gamma*vals[1:]
         self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
+        #je pense que là faut juste mettre le TD residual et ensuite faire la discounted sum
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
         
         self.path_start_idx = self.ptr
-        self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma)
+        # self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma)
+        self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma*self.lam) 
 
     def get(self):
         """
@@ -280,7 +283,7 @@ class Agent:
 
             # This is the end of an epoch, so here is where you likely want to update
             # the policy and / or value function.
-            # TODO: Implement the polcy and value function update. Hint: some of the torch code is
+            # TODO: Implement the policy and value function update. Hint: some of the torch code is
             # done for you.
 
             data = buf.get()
@@ -293,8 +296,8 @@ class Agent:
             
             #loss = torch.matmul(data['logp'], data['tdres'])#along which dim do we sum?
             
-            
-            loss = (torch.sum(torch.mul(data['logp'], data['tdres']), -1))
+            #je pense qu'ici on ne mets pas tdres mais retbuffer (A value fct)
+            loss = torch.sum(torch.mul(data['logp'], data['tdres']))
             loss.requires_grad_()
             #print(loss.requires_grad)
             
@@ -325,10 +328,11 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        action = self.ac.step(obs)[0]
+        # action = self.ac.step(obs)[0]
+        action = self.ac.step(obs)
         #action = np.random.choice([0, 1, 2, 3])
         #action = 1
-        #print(type(action))
+        print(type(action))
         return action
 
 

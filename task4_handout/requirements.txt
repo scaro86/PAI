@@ -8,3 +8,4 @@ Box2D==2.3.10
 --find-links https://download.pytorch.org/whl/torch_stable.html
 torch==1.6.0
 matplotlib==3.3.2
+sklearn
