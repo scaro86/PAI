@@ -112,7 +112,9 @@ class MLPActorCritic(nn.Module):
         
         
         dist = self.pi._distribution(state)
+        
         act = dist.sample()
+        
         vf = self.v.forward(state)
         logprob = self.pi._log_prob_from_distribution(dist, act)
         
@@ -187,7 +189,7 @@ class VPGBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
-        # Standardization is meant @335
+        # Standardization is meant Piazza@335
         
         self.tdres_buf = (self.tdres_buf - self.tdres_buf.mean())/self.tdres_buf.std()
 
@@ -294,7 +296,7 @@ class Agent:
             #loss = torch.matmul(data['logp'], data['tdres'])#along which dim do we sum?
             
             
-            loss = (torch.sum(torch.mul(data['logp'], data['tdres']), -1))
+            loss = torch.sum(torch.mul(data['logp'], data['tdres']))#I don't know along which axis to sum
             loss.requires_grad_()
             #print(loss.requires_grad)
             
@@ -306,7 +308,7 @@ class Agent:
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
-                loss = torch.sum(data['ret'])
+                loss = torch.sum(data['ret'])#still adjust this!
                 loss.requires_grad_()
                 loss.backward()
                 v_optimizer.step()
