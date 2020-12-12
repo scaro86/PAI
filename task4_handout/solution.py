@@ -11,8 +11,11 @@ from torch.optim import Adam
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> naima
 def discount_cumsum(x, discount):
     """
     Compute  cumulative sums of vectors.
@@ -170,6 +173,7 @@ class VPGBuffer:
         # see the handout for more info
         # deltas = rews[:-1] + ...
         deltas = rews[:-1] - vals[:-1] + self.gamma*vals[1:]
+        print(deltas.shape)
         self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
@@ -187,12 +191,16 @@ class VPGBuffer:
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
         # Standardization is meant @335
+<<<<<<< HEAD
 <<<<<<< Updated upstream
         
         self.tdres_buf = (self.tdres_buf - self.tdres_buf.mean())/self.tdres_buf.std()
 =======
         self.tdres_buf = (self.tdres_buf - np.mean(self.tdres_buf))/np.std(self.tdres_buf)
 >>>>>>> Stashed changes
+=======
+        self.tdres_buf = (self.tdres_buf - np.mean(self.tdres_buf))/np.std(self.tdres_buf)
+>>>>>>> naima
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     tdres=self.tdres_buf, logp=self.logp_buf)
@@ -349,10 +357,16 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
+<<<<<<< HEAD
         action = self.ac.step(obs)[0]
         #action = np.random.choice([0, 1, 2, 3])
         #action = 1
         #print(type(action))
+=======
+        #action = self.ac.step(obs)[0]
+        action = np.random.choice([0, 1, 2, 3])
+        print(type(action))
+>>>>>>> naima
         return action
 
 
