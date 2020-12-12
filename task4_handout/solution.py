@@ -11,6 +11,11 @@ from torch.optim import Adam
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
+<<<<<<< HEAD
+
+
+=======
+>>>>>>> naima
 def discount_cumsum(x, discount):
     """
     Compute  cumulative sums of vectors.
@@ -92,7 +97,8 @@ class MLPActorCritic(nn.Module):
 
         # Build value function
         self.v  = MLPCritic(obs_dim, hidden_sizes, activation)
-
+        
+    @torch.no_grad()
     def step(self, state):
         """
         Take an state and return action, value function, and log-likelihood
@@ -106,12 +112,13 @@ class MLPActorCritic(nn.Module):
         # Hint: This function is only called during inference. You should use
         # `torch.no_grad` to ensure that it does not interfer with the gradient computation.
         
+        
         dist = self.pi._distribution(state)
         act = dist.sample()
         vf = self.v.forward(state)
         logprob = self.pi._log_prob_from_distribution(dist, act)
         
-        return act, vf, logprob
+        return act.item(), vf.item(), logprob.item()
 
     def act(self, state):
         return self.step(state)[0]
@@ -184,7 +191,16 @@ class VPGBuffer:
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
         # Standardization is meant @335
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+        
+        self.tdres_buf = (self.tdres_buf - self.tdres_buf.mean())/self.tdres_buf.std()
+=======
         self.tdres_buf = (self.tdres_buf - np.mean(self.tdres_buf))/np.std(self.tdres_buf)
+>>>>>>> Stashed changes
+=======
+        self.tdres_buf = (self.tdres_buf - np.mean(self.tdres_buf))/np.std(self.tdres_buf)
+>>>>>>> naima
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     tdres=self.tdres_buf, logp=self.logp_buf)
@@ -245,7 +261,10 @@ class Agent:
             ep_returns = []
             for t in range(steps_per_epoch):
                 a, v, logp = self.ac.step(torch.as_tensor(state, dtype=torch.float32))
-                print(a)
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
                 next_state, r, terminal = self.env.transition(a)
                 ep_ret += r
@@ -286,8 +305,27 @@ class Agent:
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
-            loss = torch.sum(torch.mul(data.logp, data.tdres), -1)#along which dim do we sum?
-            loss.backwars()
+<<<<<<< Updated upstream
+            
+            #loss = torch.matmul(data['logp'], data['tdres'])#along which dim do we sum?
+            
+            
+            loss = (torch.sum(torch.mul(data['logp'], data['tdres']), -1))
+            loss.requires_grad_()
+            #print(loss.requires_grad)
+            
+            loss.backward()
+=======
+            #loss = torch.sum(torch.mul(data.logp, data.tdres), -1)#along which dim do we sum?
+            #loss.backwars()
+            #pi_optimizer.step()
+            
+            tdres = torch.tensor(data['tdres'], requires_grad = False)
+            logps = torch.tensor(data['logp'])
+            
+            loss = torch.matmul(tdres, logps)
+            loss.backwards()
+>>>>>>> Stashed changes
             pi_optimizer.step()
             
             #We suggest to do 100 iterations of value function updates
@@ -295,8 +333,14 @@ class Agent:
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
-                loss = data.ret_buf
+<<<<<<< Updated upstream
+                loss = torch.sum(data['ret'])
+                loss.requires_grad_()
+                loss.backward()
+=======
+                loss = data['ret']
                 loss.backwards()
+>>>>>>> Stashed changes
                 v_optimizer.step()
                 
                 
@@ -313,9 +357,16 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
+<<<<<<< HEAD
+        action = self.ac.step(obs)[0]
+        #action = np.random.choice([0, 1, 2, 3])
+        #action = 1
+        #print(type(action))
+=======
         #action = self.ac.step(obs)[0]
         action = np.random.choice([0, 1, 2, 3])
         print(type(action))
+>>>>>>> naima
         return action
 
 
