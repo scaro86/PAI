@@ -121,10 +121,10 @@ class MLPActorCritic(nn.Module):
         act = dist.sample()
         
         vf = self.v.forward(state)
+        
         logprob = self.pi._log_prob_from_distribution(dist, act)
         
-        return act.item(), vf.item(), logprob.item()
-    #wonder fi this is correct and if we shouldn't take the action that has the max proba or take all of them and choose after 
+        return act.item(), vf, logprob
 
     def act(self, state):
         return self.step(state)[0]
@@ -312,13 +312,14 @@ class Agent:
             pi_optimizer.step()
             
             #We suggest to do 100 iterations of value function updates
+            loss_mse=torch.nn.MSELoss()
             for _ in range(100):
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
-                loss = torch.sum(data['ret'])#still adjust this!
-                loss.requires_grad_()
-                loss.backward()
+                output = loss_mse(v.clone().detach(),sum(data['ret']))#still adjust this!
+                output.requires_grad_()
+                output.backward()
                 v_optimizer.step()
                 
                 
