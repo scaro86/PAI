@@ -96,7 +96,7 @@ class MLPActorCritic(nn.Module):
         # Build value function
         self.v  = MLPCritic(obs_dim, hidden_sizes, activation)
         
-    @torch.no_grad()
+    # @torch.no_grad()
     def step(self, state):
         """
         Take an state and return action, value function, and log-likelihood
@@ -110,11 +110,11 @@ class MLPActorCritic(nn.Module):
         # Hint: This function is only called during inference. You should use
         # `torch.no_grad` to ensure that it does not interfer with the gradient computation.
         
-        
-        dist = self.pi._distribution(state)
-        act = dist.sample()
-        vf = self.v.forward(state)
-        logprob = self.pi._log_prob_from_distribution(dist, act)
+        with torch.no_grad():
+            dist = self.pi._distribution(state)
+            act = dist.sample()
+            vf = self.v.forward(state)
+            logprob = self.pi._log_prob_from_distribution(dist, act)
         
         return act.item(), vf.item(), logprob.item()
     #wonder fi this is correct and if we shouldn't take the action that has the max proba or take all of them and choose after 
@@ -218,14 +218,14 @@ class Agent:
         # The observations are 8 dimensional vectors, and the actions are numbers,
         # i.e. 0-dimensional vectors (hence act_dim is an empty list).
         obs_dim = [8]
-        act_dim = []
+        act_dim = [] 
 
         # Training parameters
         # You may wish to change the following settings for the buffer and training
         # Number of training steps per epoch
         steps_per_epoch = 3000
         # Number of epochs to train for
-        epochs = 50
+        epochs = 1
         # The longest an episode can go on before cutting it off
         max_ep_len = 300
         # Discount factor for weighting future rewards
@@ -328,11 +328,11 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        # action = self.ac.step(obs)[0]
-        action = self.ac.step(obs)
+        action = self.ac.step(obs)[0]
+        # action = self.ac.step(obs)
         #action = np.random.choice([0, 1, 2, 3])
         #action = 1
-        print(type(action))
+        # print(type(action))
         return action
 
 
