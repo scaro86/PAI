@@ -351,8 +351,8 @@ class Agent:
         #action = np.random.choice([0, 1, 2, 3])
         #action = 1
         #print(type(action))
-        return self.ac.step(obs)[0]
-
+        action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
+        return action
 
 
 def main():
