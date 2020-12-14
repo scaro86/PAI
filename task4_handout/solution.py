@@ -112,19 +112,10 @@ class MLPActorCritic(nn.Module):
         
         with torch.no_grad():
             dist = self.pi._distribution(state)
-            act = dist.sample()
+            action = dist.sample()
             vf = self.v.forward(state)
-            logprob = self.pi._log_prob_from_distribution(dist, act)
-        
-        dist = self.pi._distribution(state)
-        
-        act = dist.sample()
-        
-        vf = self.v.forward(state)
-        
-        logprob = self.pi._log_prob_from_distribution(dist, act)
-        
-        return act.item(), vf, logprob
+            logprob = self.pi._log_prob_from_distribution(dist, action)    
+        return action.item(), vf.item(), logprob.item()
 
     def act(self, state):
         return self.step(state)[0]
@@ -184,10 +175,11 @@ class VPGBuffer:
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
         
-        self.path_start_idx = self.ptr
+        
         # self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma)
         self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma*self.lam) 
-
+        
+        self.path_start_idx = self.ptr
     def get(self):
         """
         Call after an epoch ends. Resets pointers and returns the buffer contents.
@@ -304,8 +296,8 @@ class Agent:
             #loss = torch.matmul(data['logp'], data['tdres'])#along which dim do we sum?
             
             #je pense qu'ici on ne mets pas tdres mais retbuffer (A value fct)
-            loss = torch.sum(torch.mul(data['logp'], data['tdres']))
-            loss.requires_grad_()
+            loss = torch.sum(torch.mul(torch.as_tensor(data['logp']), torch.as_tensor(data['tdres'])))
+            loss.requires_grad_(True)
             #print(loss.requires_grad)
             
             loss.backward()
@@ -317,8 +309,8 @@ class Agent:
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
-                output = loss_mse(v.clone().detach(),sum(data['ret']))#still adjust this!
-                output.requires_grad_()
+                output = loss_mse(torch.as_tensor(v).clone().detach(),torch.sum(torch.as_tensor(data['ret'])))#still adjust this!
+                output.requires_grad_(True)
                 output.backward()
                 v_optimizer.step()
                 
@@ -336,11 +328,12 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        action = self.ac.step(obs)[0]
+        # action = self.ac.step(obs)[0]
         # action = self.ac.step(obs)
         #action = np.random.choice([0, 1, 2, 3])
         #action = 1
         # print(type(action))
+        action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
         return action
 
 
