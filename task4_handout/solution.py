@@ -177,7 +177,8 @@ class VPGBuffer:
         
         
         # self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma)
-        self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma*self.lam) 
+        #self.ret_buf[self.path_start_idx:] = discount_cumsum(self.rew_buf[self.path_start_idx:], self.gamma*self.lam) 
+        self.ret_buf[path_slice] = discount_cumsum(rews[:-1],self.gamma)
         
         self.path_start_idx = self.ptr
     def get(self):
@@ -224,7 +225,7 @@ class Agent:
         # Number of training steps per epoch
         steps_per_epoch = 3000
         # Number of epochs to train for
-        epochs = 1
+        epochs = 50
         # The longest an episode can go on before cutting it off
         max_ep_len = 300
         # Discount factor for weighting future rewards
@@ -296,7 +297,7 @@ class Agent:
             #loss = torch.matmul(data['logp'], data['tdres'])#along which dim do we sum?
             
             #je pense qu'ici on ne mets pas tdres mais retbuffer (A value fct)
-            loss = torch.sum(torch.mul(torch.as_tensor(data['logp']), torch.as_tensor(data['tdres'])))
+            loss = -torch.sum(torch.mul(torch.as_tensor(data['logp']), torch.as_tensor(data['tdres'])))
             loss.requires_grad_(True)
             #print(loss.requires_grad)
             
@@ -306,12 +307,14 @@ class Agent:
             #We suggest to do 100 iterations of value function updates
             loss_mse=torch.nn.MSELoss()
             for _ in range(100):
+                #info at question @322
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
-                output = loss_mse(torch.as_tensor(v).clone().detach(),torch.sum(torch.as_tensor(data['ret'])))#still adjust this!
-                output.requires_grad_(True)
-                output.backward()
+                output = loss_mse(self.ac.v(torch.as_tensor(data['obs'])),torch.as_tensor(data['ret']))#still adjust this!
+                #print(output)
+                #output.requires_grad_(True)
+                #output.backward()
                 v_optimizer.step()
                 
                 
