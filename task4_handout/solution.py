@@ -116,9 +116,10 @@ class MLPActorCritic(nn.Module):
         act = dist.sample()
         
         vf = self.v.forward(state)
+        
         logprob = self.pi._log_prob_from_distribution(dist, act)
         
-        return act.item(), vf.item(), logprob.item()
+        return act.item(), vf, logprob
 
     def act(self, state):
         return self.step(state)[0]
@@ -224,7 +225,7 @@ class Agent:
         # Number of training steps per epoch
         steps_per_epoch = 3000
         # Number of epochs to train for
-        epochs = 50
+        epochs = 1
         # The longest an episode can go on before cutting it off
         max_ep_len = 300
         # Discount factor for weighting future rewards
@@ -304,13 +305,14 @@ class Agent:
             pi_optimizer.step()
             
             #We suggest to do 100 iterations of value function updates
+            loss_mse=torch.nn.MSELoss()
             for _ in range(100):
                 v_optimizer.zero_grad()
                 #compute a loss for the value function, call loss.backwards() and then
                 #v_optimizer.step()
-                loss = torch.sum(data['ret'])#still adjust this!
-                loss.requires_grad_()
-                loss.backward()
+                output = loss_mse(v.clone().detach(),sum(data['ret']))#still adjust this!
+                output.requires_grad_()
+                output.backward()
                 v_optimizer.step()
                 
                 
