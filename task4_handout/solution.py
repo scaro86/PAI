@@ -11,7 +11,8 @@ from torch.optim import Adam
 import torch.nn as nn
 from torch.distributions.categorical import Categorical
 
-
+#setting random seed
+np.random.seed(325)
 
 def discount_cumsum(x, discount):
     """
@@ -94,8 +95,7 @@ class MLPActorCritic(nn.Module):
 
         # Build value function
         self.v  = MLPCritic(obs_dim, hidden_sizes, activation)
-        
-    #@torch.no_grad()
+
     def step(self, state):
         """
         Take an state and return action, value function, and log-likelihood
@@ -109,24 +109,12 @@ class MLPActorCritic(nn.Module):
         # Hint: This function is only called during inference. You should use
         # `torch.no_grad` to ensure that it does not interfer with the gradient computation.
         
-        #with torch.no_grad():
-        
-        
-
-        dist, _ = self.pi.forward(state)
-        
-
-        
-        act = dist.sample()
-        print(act)
-
-        #with torch.no_grad():
-        vf = self.v.forward(state)
-            #logprob = self.pi._log_prob_from_distribution(dist, act)
-        _ , logprob = self.pi.forward(state, act)
-        print(logprob)
-         
-        return np.array(act), vf, logprob
+        with torch.no_grad():
+            dist = self.pi._distribution(state)
+            act = dist.sample()
+            logp = self.pi._log_prob_from_distribution(dist, act)
+            val = self.v(state)
+        return act.item(), val.item(), logp.item()
 
     def act(self, state):
         return self.step(state)[0]
@@ -164,7 +152,6 @@ class VPGBuffer:
         self.act_buf[self.ptr] = act
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
-        print(type(val))
         self.logp_buf[self.ptr] = logp
         self.ptr += 1
 
@@ -182,12 +169,17 @@ class VPGBuffer:
         # see the handout for more info
         # deltas = rews[:-1] + ...
         deltas = rews[:-1] - vals[:-1] + self.gamma*vals[1:]
-        self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam)
+        self.tdres_buf[path_slice] = discount_cumsum(deltas, self.gamma*self.lam) #already in code
 
         #TODO: compute the discounted rewards-to-go. Hint: use the discount_cumsum function
-        for i in range(self.ptr):            
-            self.ret_buf[i] = sum(discount_cumsum(self.rew_buf[i:self.ptr], self.gamma))
+        
+        self.ret_buf[path_slice] = discount_cumsum(rews[:-1], self.gamma)
+        
+        #try with self.ret_buf[path_slice]  = discount_cumsum(rews[:-1], self.gamma)
+
         self.path_start_idx = self.ptr
+
+
     def get(self):
         """
         Call after an epoch ends. Resets pointers and returns the buffer contents.
@@ -197,9 +189,9 @@ class VPGBuffer:
         self.ptr, self.path_start_idx = 0, 0
 
         # TODO: Normalize the TD-residuals in self.tdres_buf
-        # Standardization is meant Piazza@335
         
-        self.tdres_buf = (self.tdres_buf - self.tdres_buf.mean())/self.tdres_buf.std()
+        #normalized TDres
+        self.tdres_buf = (self.tdres_buf - self.tdres_buf.mean())/self.tdres_buf.std() 
 
         data = dict(obs=self.obs_buf, act=self.act_buf, ret=self.ret_buf,
                     tdres=self.tdres_buf, logp=self.logp_buf)
@@ -230,9 +222,9 @@ class Agent:
         # Training parameters
         # You may wish to change the following settings for the buffer and training
         # Number of training steps per epoch
-        steps_per_epoch = 3 #usually 3000
+        steps_per_epoch = 3000
         # Number of epochs to train for
-        epochs = 1 #was 50 (remember to change back)
+        epochs = 70 #increase for better score
         # The longest an episode can go on before cutting it off
         max_ep_len = 300
         # Discount factor for weighting future rewards
@@ -259,7 +251,6 @@ class Agent:
         for epoch in range(epochs):
             ep_returns = []
             for t in range(steps_per_epoch):
-
                 a, v, logp = self.ac.step(torch.as_tensor(state, dtype=torch.float32))
 
                 next_state, r, terminal = self.env.transition(a)
@@ -278,7 +269,6 @@ class Agent:
                 if terminal or timeout or epoch_ended:
                     # if trajectory didn't reach terminal state, bootstrap value target
                     if epoch_ended:
-
                         _, v, _ = self.ac.step(torch.as_tensor(state, dtype=torch.float32))
                     else:
                         v = 0
@@ -296,43 +286,50 @@ class Agent:
             # done for you.
 
             data = buf.get()
-
+            
+          
             #Do 1 policy gradient update
             pi_optimizer.zero_grad() #reset the gradient in the policy optimizer
+            
+            #obtains the values from the buffer
+            act, sta, tdres = data['act'], data['obs'], data['tdres']
+            
+            #compute the log probability of the policy given the state and
+            #action vectors, they contain the gradient as they are not computed
+            #from the step function
+            _ , logp = self.ac.pi(sta, act)
+            
+            #take negative value to minimize the loss
+            #expected value computed by taking the mean
+            loss_policy  = -(logp * tdres).mean()
+            
+            loss_policy.backward()
+            
+            pi_optimizer.step()
 
             #Hint: you need to compute a 'loss' such that its derivative with respect to the policy
             #parameters is the policy gradient. Then call loss.backwards() and pi_optimizer.step()
-            
-            print(data['tdres'])
-            tdres = data['tdres']
-            logps = data['logp']
-            print(data['tdres'])
-            
-            
-            #loss = torch.sum(torch.mul(tdres, logps))#along which dim do we sum?
-            #loss = logps[1]
-            
-            loss = torch.sum(torch.mul(tdres, logps))#I don't know along which axis to sum
-            loss.requires_grad_()
-            #rint(loss.requires_grad)
-            
-            loss.backward()
-            pi_optimizer.step()
-            
+
             loss_mse = torch.nn.MSELoss()
             #We suggest to do 100 iterations of value function updates
             for _ in range(100):
+                
                 v_optimizer.zero_grad()
+                
+                sta, rew_to_go = data['obs'], data['ret']
+                
+                prediction = self.ac.v(sta)
+                
+                #MSE loss with the rewards to go as the target
+                loss_v = loss_mse(prediction, rew_to_go)
+                
+                loss_v.backward()
+                
+                v_optimizer.step()
+                
+                
                 #compute a loss for the value function, call loss.backwards() and then
-                v_optimizer.step()
-                output = loss_mse(v, torch.sum(data['ret']))
-                #ret_to_go = torch.tensor(data['ret'])
-                #output = logps[1]
-                output.requires_grad_()
-                output.backward()                
-                v_optimizer.step()
-                
-                
+                #v_optimizer.step()
 
 
         return True
@@ -346,11 +343,8 @@ class Agent:
         You SHOULD NOT change the arguments this function takes and what it outputs!
         """
         # TODO: Implement this function.
-        #action, _ , _ = self.ac.step(obs)
-        #print(type(action))
-        #action = np.random.choice([0, 1, 2, 3])
-        #action = 1
-        #print(type(action))
+        # Currently, this just returns a random action.
+
         action = self.ac.act(torch.as_tensor(obs, dtype=torch.float32))
         return action
 
